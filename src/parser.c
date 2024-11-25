@@ -23767,6 +23767,11 @@ static TSCharacterRange sym__identifier_token_character_set_2[] = {
   {0xe0100, 0xe01ef},
 };
 
+static TSCharacterRange sym__html_attribute_value_character_set_1[] = {
+  {'\t', '\r'}, {' ', ' '}, {'(', ')'}, {'-', '.'}, {'0', '9'}, {'=', '>'}, {'A', 'Z'}, {'a', '{'},
+  {'}', '}'},
+};
+
 static bool ts_lex(TSLexer *lexer, TSStateId state) {
   START_LEXER();
   eof = lexer->eof(lexer);
@@ -25049,9 +25054,14 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       if (lookahead == '@') ADVANCE(348);
       if (('\t' <= lookahead && lookahead <= '\r') ||
           lookahead == ' ') ADVANCE(372);
-      if (('-' <= lookahead && lookahead <= '9') ||
+      if (lookahead == '(' ||
+          lookahead == ')' ||
+          ('-' <= lookahead && lookahead <= '9') ||
+          lookahead == '=' ||
+          lookahead == '>' ||
           ('A' <= lookahead && lookahead <= 'Z') ||
-          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(373);
+          ('a' <= lookahead && lookahead <= '{') ||
+          lookahead == '}') ADVANCE(373);
       END_STATE();
     case 51:
       if (lookahead == '/') ADVANCE(42);
@@ -27374,21 +27384,20 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       ACCEPT_TOKEN(sym__html_attribute_value);
       if (('\t' <= lookahead && lookahead <= '\r') ||
           lookahead == ' ') ADVANCE(372);
-      if (lookahead == '-' ||
-          lookahead == '.' ||
-          ('0' <= lookahead && lookahead <= '9') ||
-          ('A' <= lookahead && lookahead <= 'Z') ||
-          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(373);
-      END_STATE();
-    case 373:
-      ACCEPT_TOKEN(sym__html_attribute_value);
-      if (('\t' <= lookahead && lookahead <= '\r') ||
-          lookahead == ' ' ||
+      if (lookahead == '(' ||
+          lookahead == ')' ||
           lookahead == '-' ||
           lookahead == '.' ||
           ('0' <= lookahead && lookahead <= '9') ||
+          lookahead == '=' ||
+          lookahead == '>' ||
           ('A' <= lookahead && lookahead <= 'Z') ||
-          ('a' <= lookahead && lookahead <= 'z')) ADVANCE(373);
+          ('a' <= lookahead && lookahead <= '{') ||
+          lookahead == '}') ADVANCE(373);
+      END_STATE();
+    case 373:
+      ACCEPT_TOKEN(sym__html_attribute_value);
+      if (set_contains(sym__html_attribute_value_character_set_1, 9, lookahead)) ADVANCE(373);
       END_STATE();
     case 374:
       ACCEPT_TOKEN(sym_html_text);
