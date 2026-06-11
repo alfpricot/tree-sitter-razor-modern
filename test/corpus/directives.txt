@@ -344,3 +344,57 @@ lock
       (identifier)
       (block
         (element)))))
+
+===
+addTagHelper
+===
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@addTagHelper "*, Microsoft.AspNetCore.Mvc.TagHelpers"
+@addTagHelper SomeType, MyAssembly
+---
+
+(compilation_unit
+  (razor_addtaghelper_directive
+    (taghelper_wildcard)
+    (qualified_name
+      (qualified_name
+        (qualified_name
+          (identifier)
+          (identifier))
+        (identifier))
+      (identifier)))
+  (razor_addtaghelper_directive
+    (string_literal
+      (string_literal_content)))
+  (razor_addtaghelper_directive
+    (identifier)
+    (identifier)))
+
+===
+removeTagHelper
+===
+@removeTagHelper *, MyAssembly
+@removeTagHelper "*, MyAssembly"
+---
+
+(compilation_unit
+  (razor_removetaghelper_directive
+    (taghelper_wildcard)
+    (identifier))
+  (razor_removetaghelper_directive
+    (string_literal
+      (string_literal_content))))
+
+===
+tagHelperPrefix
+===
+@tagHelperPrefix "th:"
+@tagHelperPrefix th
+---
+
+(compilation_unit
+  (razor_taghelperprefix_directive
+    (string_literal
+      (string_literal_content)))
+  (razor_taghelperprefix_directive
+    (identifier)))

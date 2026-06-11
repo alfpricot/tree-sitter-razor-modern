@@ -21,6 +21,9 @@
   "at_block"
   "at_at_escape"
   "at_colon_transition"
+  "at_addtaghelper"
+  "at_removetaghelper"
+  "at_taghelperprefix"
 ] @constant.macro
 
 [
@@ -59,3 +62,5 @@
 (razor_rendermode) @property
 
 (razor_attribute_name) @function
+
+(taghelper_wildcard) @character.special

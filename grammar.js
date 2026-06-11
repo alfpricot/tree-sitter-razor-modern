@@ -68,6 +68,9 @@ module.exports = grammar(CSHARP, {
             $.razor_typeparam_directive,
             $.razor_namespace_directive,
             $.razor_preservewhitespace_directive,
+            $.razor_addtaghelper_directive,
+            $.razor_removetaghelper_directive,
+            $.razor_taghelperprefix_directive,
           ),
         ),
         repeat(choice($._node, $.razor_block)),
@@ -191,6 +194,28 @@ module.exports = grammar(CSHARP, {
       ),
     razor_rendermode: (_) =>
       choice("InteractiveServer", "InteractiveWebAssembly", "InteractiveAuto"),
+
+    _taghelper_target: ($) =>
+      seq(
+        choice($.identifier, alias("*", $.taghelper_wildcard)),
+        ",",
+        field("assembly", $._name),
+      ),
+    razor_addtaghelper_directive: ($) =>
+      seq(
+        alias(seq($._razor_marker, "addTagHelper"), "at_addtaghelper"),
+        choice($.string_literal, $._taghelper_target),
+      ),
+    razor_removetaghelper_directive: ($) =>
+      seq(
+        alias(seq($._razor_marker, "removeTagHelper"), "at_removetaghelper"),
+        choice($.string_literal, $._taghelper_target),
+      ),
+    razor_taghelperprefix_directive: ($) =>
+      seq(
+        alias(seq($._razor_marker, "tagHelperPrefix"), "at_taghelperprefix"),
+        choice($.string_literal, $.identifier),
+      ),
 
     razor_block: ($) =>
       prec.left(

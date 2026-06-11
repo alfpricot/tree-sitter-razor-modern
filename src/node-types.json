@@ -1075,6 +1075,11 @@
     }
   },
   {
+    "type": "at_addtaghelper",
+    "named": false,
+    "fields": {}
+  },
+  {
     "type": "at_attribute",
     "named": false,
     "fields": {}
@@ -1160,6 +1165,11 @@
     "fields": {}
   },
   {
+    "type": "at_removetaghelper",
+    "named": false,
+    "fields": {}
+  },
+  {
     "type": "at_rendermode",
     "named": false,
     "fields": {}
@@ -1171,6 +1181,11 @@
   },
   {
     "type": "at_switch",
+    "named": false,
+    "fields": {}
+  },
+  {
+    "type": "at_taghelperprefix",
     "named": false,
     "fields": {}
   },
@@ -1968,6 +1983,10 @@
           "named": true
         },
         {
+          "type": "razor_addtaghelper_directive",
+          "named": true
+        },
+        {
           "type": "razor_attribute_directive",
           "named": true
         },
@@ -2048,6 +2067,10 @@
           "named": true
         },
         {
+          "type": "razor_removetaghelper_directive",
+          "named": true
+        },
+        {
           "type": "razor_rendermode_directive",
           "named": true
         },
@@ -2057,6 +2080,10 @@
         },
         {
           "type": "razor_switch",
+          "named": true
+        },
+        {
+          "type": "razor_taghelperprefix_directive",
           "named": true
         },
         {
@@ -5656,6 +5683,52 @@
     }
   },
   {
+    "type": "razor_addtaghelper_directive",
+    "named": true,
+    "fields": {
+      "assembly": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "alias_qualified_name",
+            "named": true
+          },
+          {
+            "type": "generic_name",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "qualified_name",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        },
+        {
+          "type": "taghelper_wildcard",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "razor_attribute_directive",
     "named": true,
     "fields": {},
@@ -7038,6 +7111,52 @@
     }
   },
   {
+    "type": "razor_removetaghelper_directive",
+    "named": true,
+    "fields": {
+      "assembly": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "alias_qualified_name",
+            "named": true
+          },
+          {
+            "type": "generic_name",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "qualified_name",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        },
+        {
+          "type": "taghelper_wildcard",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "razor_rendermode",
     "named": true,
     "fields": {}
@@ -7344,6 +7463,25 @@
         },
         {
           "type": "statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "razor_taghelperprefix_directive",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "string_literal",
           "named": true
         }
       ]
@@ -9091,6 +9229,10 @@
     "named": false
   },
   {
+    "type": "at_addtaghelper",
+    "named": false
+  },
+  {
     "type": "at_at_escape",
     "named": false
   },
@@ -9159,6 +9301,10 @@
     "named": false
   },
   {
+    "type": "at_removetaghelper",
+    "named": false
+  },
+  {
     "type": "at_rendermode",
     "named": false
   },
@@ -9168,6 +9314,10 @@
   },
   {
     "type": "at_switch",
+    "named": false
+  },
+  {
+    "type": "at_taghelperprefix",
     "named": false
   },
   {
@@ -9618,6 +9768,10 @@
   {
     "type": "switch",
     "named": false
+  },
+  {
+    "type": "taghelper_wildcard",
+    "named": true
   },
   {
     "type": "this",
