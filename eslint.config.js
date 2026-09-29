@@ -1,7 +1,7 @@
 import js from '@eslint/js';
 
 // grammar.js and grammar/**/*.js call tree-sitter DSL functions (seq, choice,
-// field, alias, prec, optional, repeat, repeat1, token, ...) as implicit
+// field, alias, prec, optional, repeat, repeat1, token, blank, reserved) as implicit
 // globals — the tree-sitter CLI evaluates grammar.js in a context that
 // provides them, so they are declared as read-only globals here rather than
 // imported.
@@ -16,6 +16,8 @@ const treeSitterDslGlobals = {
   field: 'readonly',
   alias: 'readonly',
   token: 'readonly',
+  blank: 'readonly',
+  reserved: 'readonly',
 };
 
 export default [
@@ -33,9 +35,6 @@ export default [
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: treeSitterDslGlobals,
-    },
-    rules: {
-      'no-useless-escape': 'off',
     },
   },
   {
