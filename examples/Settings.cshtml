@@ -1,0 +1,69 @@
+@page
+@model SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<h1>Settings</h1>
+
+@if (!Model.IsConfigured)
+{
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    <p>Nothing in the worker reads these values yet -- this screen is a storage and audit-trail layer for tuning knobs and schedules, ahead of wiring specific settings into the worker one at a time.</p>
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <p role="alert">@Model.ErrorMessage</p>
+    }
+    @if (Model.StatusMessage is not null)
+    {
+        <p role="status">@Model.StatusMessage</p>
+    }
+
+    <section aria-labelledby="add-setting-title">
+        <h2 id="add-setting-title">Add or update a setting</h2>
+        <form method="post" asp-page-handler="Save">
+            <label asp-for="Key">Key</label>
+            <input asp-for="Key" autocomplete="off" />
+            <label asp-for="ValueJson">Value (JSON)</label>
+            <input asp-for="ValueJson" autocomplete="off" placeholder="e.g. 16 or &quot;recommend&quot; or true" />
+            <label asp-for="Description">Description</label>
+            <input asp-for="Description" autocomplete="off" />
+            <button type="submit">Save</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="settings-title">
+        <h2 id="settings-title">Configured settings</h2>
+        @if (Model.Settings.Count == 0)
+        {
+            <p class="empty-state">No settings are stored yet. Add a value when a worker setting is ready to be managed here.</p>
+        }
+        <div class="table-scroll" tabindex="0">
+        <table>
+            <caption>Operator-managed settings</caption><thead><tr><th scope="col">Key</th><th scope="col">Value</th><th scope="col">Description</th><th scope="col">Updated</th><th scope="col">Updated by</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+                @foreach (AppSetting setting in Model.Settings)
+                {
+                    <tr>
+                        <td>@setting.Key</td>
+                        <td><code>@setting.ValueJson</code></td>
+                        <td>@setting.Description</td>
+                        <td><utc-time value="@setting.UpdatedAt" /></td>
+                        <td>@setting.UpdatedBy</td>
+                        <td>
+                            <form method="post" asp-page-handler="Delete">
+                                <input type="hidden" name="key" value="@setting.Key" />
+                                <button type="submit" onclick="return confirm('Delete setting @setting.Key? This cannot be undone.');">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </section>
+}

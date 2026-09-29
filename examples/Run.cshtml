@@ -1,0 +1,30 @@
+@page
+@model RunModel
+@{
+    ViewData["Title"] = "Run details";
+}
+
+<h1>Run details</h1>
+
+@if (!Model.IsConfigured)
+{
+    <p role="alert">This deployment has no registry connection configured.</p>
+}
+else
+{
+    <table>
+        <thead><tr><th>Object</th><th>Type</th><th>Status</th><th>Duration</th><th>Failure</th></tr></thead>
+        <tbody>
+            @foreach (SyncRunObject item in Model.Objects)
+            {
+                <tr>
+                    <td>@item.Schema.@item.Name</td>
+                    <td>@item.Type</td>
+                    <td>@item.Status</td>
+                    <td>@RunModel.DescribeDuration(item.DurationMs)</td>
+                    <td>@(item.Failure ?? "-")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

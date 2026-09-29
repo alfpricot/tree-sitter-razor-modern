@@ -1,0 +1,45 @@
+@using Microsoft.Extensions.Hosting
+@inject IHostEnvironment HostEnvironment
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - ExampleApp</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <div class="brand">
+            <a asp-page="/Index">ExampleApp</a>
+            @* Shown only away from Production, so an operator can never mistake a non-production
+               deployment for the real one -- Production itself stays visually quiet. *@
+            @if (!this.HostEnvironment.IsProduction())
+            {
+                <span class="env-badge">@this.HostEnvironment.EnvironmentName</span>
+            }
+        </div>
+        @{
+            string currentPage = this.ViewContext.RouteData.Values["page"] as string;
+            string CurrentIfPage(string page) => string.Equals(currentPage, page, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+        }
+        <nav aria-label="Primary">
+            <ul>
+                <li><a asp-page="/Index" aria-current="@CurrentIfPage("/Index")">Home</a></li>
+                <li><a asp-page="/Registry" aria-current="@CurrentIfPage("/Registry")">Registry</a></li>
+                <li><a asp-page="/Runs" aria-current="@CurrentIfPage("/Runs")">Runs</a></li>
+                <li><a asp-page="/Workers" aria-current="@CurrentIfPage("/Workers")">Workers</a></li>
+                <li><a asp-page="/Settings" aria-current="@CurrentIfPage("/Settings")">Settings</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main id="main">
+        @RenderBody()
+    </main>
+    <footer>
+        <p>ExampleApp &mdash; Data export management.</p>
+    </footer>
+    <script src="~/js/site.js"></script>
+</body>
+</html>

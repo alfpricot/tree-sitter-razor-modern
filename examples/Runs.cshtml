@@ -1,0 +1,105 @@
+@page
+@model RunsModel
+@{
+    ViewData["Title"] = "Runs";
+}
+
+<h1>Runs</h1>
+
+@if (TempData["QueuedJob"] is not null)
+{
+    <p role="status">Sync request #@TempData["QueuedJob"] was queued.</p>
+}
+
+@if (TempData["ForceFailNotApplied"] is not null)
+{
+    <p role="alert">Nothing was marked failed -- it may have already completed, be too recent, or its worker may still be sending heartbeats.</p>
+}
+
+@if (!Model.IsConfigured)
+{
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    <h2>Manual sync jobs</h2>
+    @if (Model.Jobs.Count == 0)
+    {
+        <p class="empty-state">No manual sync jobs have been requested. Queue a sync from the Registry screen when you are ready.</p>
+    }
+    <div class="table-scroll" tabindex="0"><table>
+        <caption>Manual sync jobs</caption><thead><tr><th scope="col">Requested</th><th scope="col">Source</th><th scope="col">Filter</th><th scope="col">Requested by</th><th scope="col">Status</th><th scope="col">Failure</th><th scope="col">Action</th></tr></thead>
+        <tbody>
+            @foreach (SyncJob job in Model.Jobs)
+            {
+                <tr>
+                    <td><utc-time value="@job.RequestedAt" /></td>
+                    <td>@job.SourceName</td>
+                    <td>@(job.ObjectFilter is { Length: > 0 } ? string.Join(", ", job.ObjectFilter) : "All objects")</td>
+                    <td>@job.RequestedBy</td>
+                    <td>@job.Status</td>
+                    <td>@(job.Failure ?? "-")</td>
+                    <td>
+                        @if (job.Status == "queued")
+                        {
+                            <form method="post" asp-page-handler="CancelJob">
+                                <input type="hidden" name="jobId" value="@job.Id" />
+                                <button type="submit">Cancel</button>
+                            </form>
+                        }
+                        else if (job.Status is "succeeded" or "failed" or "canceled")
+                        {
+                            <form method="post" asp-page-handler="RetryJob">
+                                <input type="hidden" name="jobId" value="@job.Id" />
+                                <button type="submit">Retry</button>
+                            </form>
+                        }
+                        else if (job.Status == "running")
+                        {
+                            <form method="post" asp-page-handler="ForceFailJob" onsubmit="return confirm('Mark this job as failed? This does not stop the worker -- only use this once the job has clearly died. It is refused while the job is too recent or its worker is still sending heartbeats.');">
+                                <input type="hidden" name="jobId" value="@job.Id" />
+                                <button type="submit">Mark failed</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span>Running -- cannot be stopped from here.</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table></div>
+
+    <h2>Runs</h2>
+    @if (Model.Runs.Count == 0)
+    {
+        <p class="empty-state">No export runs have been recorded yet.</p>
+    }
+    <div class="table-scroll" tabindex="0"><table>
+        <caption>Recent export runs</caption><thead><tr><th scope="col">Started</th><th scope="col">Source</th><th scope="col">Requested by</th><th scope="col">Worker</th><th scope="col">Status</th><th scope="col">Objects (ok/failed/skipped)</th><th scope="col">Completed</th><th scope="col">Action</th></tr></thead>
+        <tbody>
+            @foreach (SyncRun run in Model.Runs)
+            {
+                <tr>
+                    <td><utc-time value="@run.StartedAt" /></td>
+                    <td>@run.SourceName</td>
+                    <td>@(run.RequestedBy ?? "-")</td>
+                    <td>@run.WorkerId</td>
+                    <td>@run.Status</td>
+                    <td><a asp-page="./Run" asp-route-runId="@run.Id">@run.ObjectsSucceeded / @run.ObjectsFailed / @run.ObjectsSkipped</a></td>
+                    <td><utc-time value="@run.CompletedAt" /></td>
+                    <td>
+                        @if (run.Status == "running")
+                        {
+                            <form method="post" asp-page-handler="ForceFailRun" onsubmit="return confirm('Mark this run as failed? This does not stop the worker -- only use this once the run has clearly died. It is refused while the run is too recent or its worker is still sending heartbeats.');">
+                                <input type="hidden" name="runId" value="@run.Id" />
+                                <button type="submit">Mark failed</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table></div>
+}

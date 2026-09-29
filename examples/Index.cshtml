@@ -1,0 +1,101 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home";
+}
+
+@if (!Model.IsConfigured)
+{
+    <h1>ExampleApp</h1>
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    <h1>Dashboard</h1>
+
+    @if (Model.AttentionItems.Count > 0)
+    {
+        <section class="attention-panel" aria-labelledby="attention-title">
+            <h2 id="attention-title">Needs attention (@Model.AttentionItems.Count)</h2>
+            <ul class="attention-list">
+                @foreach (AttentionItem item in Model.AttentionItems)
+                {
+                    <li>
+                        <span class="badge badge--danger">Attention</span>
+                        <span class="message">@item.Message</span>
+                        @if (item.RunId is not null)
+                        {
+                            <a asp-page="@item.PageRoute" asp-route-runId="@item.RunId">@item.LinkText &rarr;</a>
+                        }
+                        else
+                        {
+                            <a asp-page="@item.PageRoute">@item.LinkText &rarr;</a>
+                        }
+                        <form method="post" asp-page-handler="Dismiss">
+                            <input type="hidden" name="itemKey" value="@item.ItemKey" />
+                            <button type="submit">Dismiss</button>
+                        </form>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+    else
+    {
+        <p class="notice--success" role="status">Every enabled source's last run succeeded, and a worker has checked in recently. Nothing needs attention right now.</p>
+    }
+
+    <h2 id="sources-title">Sources</h2>
+    @if (Model.SourceStatuses.Count == 0)
+    {
+        <p class="empty-state">No sources are registered yet. <a asp-page="/Registry">Register one</a> to start exporting.</p>
+    }
+    else
+    {
+        <div class="table-scroll" tabindex="0">
+        <table aria-labelledby="sources-title">
+            <caption class="sr-only">Most recent run per registered source</caption>
+            <thead><tr><th scope="col">Source</th><th scope="col">Status</th><th scope="col">Last run</th><th scope="col">Objects (ok/failed/skipped)</th><th scope="col"></th></tr></thead>
+            <tbody>
+                @foreach (SourceStatus status in Model.SourceStatuses)
+                {
+                    <tr class="@(status.NeedsAttention ? "attention" : null)">
+                        <td>@status.SourceName@(status.Enabled ? "" : " (disabled)")</td>
+                        <td><span class="badge badge--@status.BadgeVariant">@status.BadgeText</span></td>
+                        <td>
+                            @if (status.LastRunStartedAt is not null)
+                            {
+                                <utc-time value="@status.LastRunStartedAt" /> <span class="time-relative">(@IndexModel.DescribeRelativeTime(status.LastRunStartedAt))</span>
+                            }
+                            else
+                            {
+                                <span>&mdash;</span>
+                            }
+                        </td>
+                        <td>@(status.LastRunStartedAt is null ? "-" : $"{status.ObjectsSucceeded} / {status.ObjectsFailed} / {status.ObjectsSkipped}")</td>
+                        <td>
+                            @if (status.LastRunId is not null)
+                            {
+                                <text><a asp-page="/Run" asp-route-runId="@status.LastRunId">View run</a> &middot;</text>
+                            }
+                            <a asp-page="/Registry">Manage</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+
+    <p class="worker-summary">
+        @if (Model.TotalWorkerCount == 0)
+        {
+            <text>No worker has ever checked in.</text>
+        }
+        else
+        {
+            <text>@Model.ActiveWorkerCount of @Model.TotalWorkerCount worker(s) checked in within the last five minutes.</text>
+        }
+        <a asp-page="/Workers">View workers &rarr;</a>
+    </p>
+}

@@ -1,0 +1,65 @@
+@page "{objectId:long}"
+@model ObjectColumnsModel
+@{
+    ViewData["Title"] = "Manage columns";
+}
+
+@if (!Model.IsConfigured)
+{
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    @if (Model.ErrorMessage is not null)
+    {
+        <p role="alert">@Model.ErrorMessage</p>
+    }
+
+    @if (Model.RegistryObject is not null)
+    {
+        <p><a asp-page="/ObjectBrowser" asp-route-sourceServerId="@Model.RegistryObject.SourceServerId">&larr; Browse objects</a></p>
+
+        <h1>Manage columns — @Model.RegistryObject.Schema.@Model.RegistryObject.Name</h1>
+
+        <p>Currently exporting: @(Model.RegistryObject.AllColumns ? "all columns" : $"{Model.SelectedColumns.Count} selected column(s)").</p>
+
+        @if (Model.IsMetadataLoginConfigured && Model.LiveColumns.Count > 0)
+        {
+            <form method="post" asp-page-handler="SaveAllColumns">
+                <input type="hidden" name="objectId" value="@Model.RegistryObject.Id" />
+                <button type="submit">Export all columns</button>
+            </form>
+
+            <form method="post" asp-page-handler="SaveSelectedColumns">
+                <input type="hidden" name="objectId" value="@Model.RegistryObject.Id" />
+                <fieldset>
+                    <legend>Or select specific columns</legend>
+                    <div class="table-scroll" tabindex="0">
+                        <ul class="column-list">
+                            @foreach (string column in Model.LiveColumns)
+                            {
+                                bool isChecked = Model.RegistryObject.AllColumns || Model.SelectedColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
+                                bool isRequired = Model.RequiredColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
+                                <li>
+                                    <label>
+                                        <input type="checkbox" name="selectedColumns" value="@column" checked="@isChecked" />
+                                        @column
+                                        @if (isRequired)
+                                        {
+                                            <span> (required for row identity or change detection)</span>
+                                        }
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </fieldset>
+                <button type="submit">Save selected columns</button>
+            </form>
+        }
+        else if (Model.IsMetadataLoginConfigured && Model.ErrorMessage is null)
+        {
+            <p class="empty-state">No live columns were found for @Model.RegistryObject.Schema.@Model.RegistryObject.Name.</p>
+        }
+    }
+}
