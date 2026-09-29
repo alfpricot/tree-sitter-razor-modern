@@ -1,22 +1,59 @@
-# tree-sitter-razor
+# tree-sitter-razor-modern
 
-[![CI][ci]](https://github.com/tris203/tree-sitter-razor/actions/workflows/ci.yml)
-[![discord][discord]](https://discord.gg/w7nTvsVJhm)
-[![matrix][matrix]](https://matrix.to/#/#tree-sitter-chat:matrix.org)
+A [tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammar for ASP.NET Core Razor markup (`.cshtml` and `.razor`).
 
-<!-- NOTE: uncomment these if you're publishing packages: -->
-<!-- [![npm][npm]](https://www.npmjs.com/package/tree-sitter-razor) -->
-<!-- [![crates][crates]](https://crates.io/crates/tree-sitter-razor) -->
-<!-- [![pypi][pypi]](https://pypi.org/project/tree-sitter-razor/) -->
+This project is a maintained fork of
+[`tris203/tree-sitter-razor`](https://github.com/tris203/tree-sitter-razor), licensed under MIT. Embedded C# is
+parsed by the C# grammar's own rules, so node kinds inside code blocks match `tree-sitter-c-sharp`.
 
-A Tree-sitter parser for razor files.
+## Using it
 
-## References
+```sh
+cargo add tree-sitter tree-sitter-razor-modern
+```
 
-<!-- NOTE: add the grammar's references here -->
+```rust
+let mut parser = tree_sitter::Parser::new();
+let language = tree_sitter_razor::LANGUAGE;
+parser
+    .set_language(&language.into())
+    .expect("Error loading ASP.NET Core Razor markup (`.cshtml` and `.razor`) parser");
+```
 
-[Razor syntax reference for ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/mvc/views/razor?view=aspnetcore-9.0)
+```sh
+npm install tree-sitter-razor-modern
+```
 
-[ci]: https://img.shields.io/github/actions/workflow/status/tris203/tree-sitter-razor/ci.yml?logo=github&label=CI
-[discord]: https://img.shields.io/discord/1063097320771698699?logo=discord&label=discord
-[matrix]: https://img.shields.io/matrix/tree-sitter-chat%3Amatrix.org?logo=matrix&label=matrix
+```js
+import Parser from 'tree-sitter';
+import Language from 'tree-sitter-razor-modern';
+
+const parser = new Parser();
+parser.setLanguage(Language);
+```
+
+A GitHub Packages copy is also published as `@meloncholera/tree-sitter-razor-modern`.
+
+## Building
+
+```sh
+npm install --ignore-scripts
+npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter generate
+cargo build
+```
+
+The generated parser (`src/parser.c`, `src/grammar.json`, and `src/node-types.json`) is committed.
+Regenerate and commit the diff after every `grammar.js` change.
+
+## Testing
+
+```sh
+CC=gcc CXX=g++ npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter test
+cargo test
+```
+
+On Windows without MSVC, set `CC` and `CXX` to an installed GCC-compatible toolchain.
+
+## License
+
+MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

@@ -7,9 +7,9 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
-const CSHARP = require("tree-sitter-c-sharp/grammar").default;
+import CSHARP from 'tree-sitter-c-sharp/grammar.js';
 
-module.exports = grammar(CSHARP, {
+export default grammar(CSHARP, {
   name: "razor",
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],

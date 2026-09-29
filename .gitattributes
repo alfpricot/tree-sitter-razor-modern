@@ -1,31 +1,63 @@
-* text=auto eol=lf
+# GitHub Linguist
+#
+# Controls how GitHub classifies files in the repository language bar.
+# See: https://github.com/github-linguist/linguist
 
-# Generated source files
-src/*.json linguist-generated
-src/parser.c linguist-generated
-src/tree_sitter/* linguist-generated
-# C bindings
-bindings/c/* linguist-generated
-CMakeLists.txt linguist-generated
-Makefile linguist-generated
-# Rust bindings
-bindings/rust/* linguist-generated
-Cargo.toml linguist-generated
-Cargo.lock linguist-generated
-# Node.js bindings
-bindings/node/* linguist-generated
-binding.gyp linguist-generated
-package.json linguist-generated
-package-lock.json linguist-generated
-# Python bindings
-bindings/python/** linguist-generated
-setup.py linguist-generated
-pyproject.toml linguist-generated
-# Go bindings
-bindings/go/* linguist-generated
-go.mod linguist-generated
-go.sum linguist-generated
-# Swift bindings
-bindings/swift/** linguist-generated
-Package.swift linguist-generated
-Package.resolved linguist-generated
+# Handle line endings automatically for text files
+*                        text=auto
+
+# Rust
+*.rs                     text eol=lf linguist-detectable=true linguist-language=Rust
+
+# C / C++ (native tree-sitter parser and node-gyp bindings)
+*.c                      text eol=lf linguist-detectable=true linguist-language=C
+*.h                      text eol=lf
+*.cc                     text eol=lf linguist-detectable=true linguist-language=C++
+*.gyp                    text eol=lf
+*.scm                    text eol=lf
+src/parser.c             linguist-generated=true
+src/grammar.json         linguist-generated=true
+src/node-types.json      linguist-generated=true
+
+# JavaScript / TypeScript (node bindings and test scripts)
+*.js                     text eol=lf linguist-detectable=true linguist-language=JavaScript
+*.mjs                    text eol=lf linguist-detectable=true linguist-language=JavaScript
+*.ts                     text eol=lf linguist-detectable=true linguist-language=TypeScript
+
+# Grammar test corpus and fixtures
+*.sql                    text eol=lf linguist-detectable=true linguist-language=SQL
+*.txt                    text eol=lf
+
+# Data / config formats
+*.json                   text eol=lf linguist-detectable=true linguist-language=JSON
+*.toml                   text eol=lf linguist-detectable=true linguist-language=TOML
+*.yml                    text eol=lf linguist-detectable=true linguist-language=YAML
+*.md                     text eol=lf diff=markdown
+
+# Configuration / repo metadata
+.editorconfig            text eol=lf export-ignore linguist-detectable=false
+.gitattributes           text eol=lf export-ignore linguist-detectable=false
+.gitignore               text eol=lf export-ignore linguist-detectable=false
+.nvmrc                   text eol=lf export-ignore linguist-detectable=false
+
+# Documentation
+CHANGELOG.md             linguist-generated=true linguist-documentation=true
+CONTRIBUTING.md          text eol=lf linguist-documentation=true
+LICENSE                  text eol=lf linguist-documentation=true
+NOTICE                   text eol=lf linguist-documentation=true
+README.md                text eol=lf linguist-documentation=true
+SECURITY.md              text eol=lf linguist-documentation=true
+
+# Generated / lock files (excluded from language stats and diffs)
+Cargo.lock               linguist-generated=true export-ignore -diff
+package-lock.json        linguist-generated=true export-ignore -diff
+
+# Native build artifacts (not tracked, but produced by this repo's own build)
+*.node                   binary
+*.wasm                   binary
+*.so                     binary
+*.dylib                  binary
+*.dll                    binary
+
+# GitHub Actions workflows
+.github/**/*.yml         linguist-detectable=true

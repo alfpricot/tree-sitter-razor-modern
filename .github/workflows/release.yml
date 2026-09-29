@@ -1,0 +1,419 @@
+# =============================================================================
+#  tree-sitter-razor-modern · GitHub Actions
+# -----------------------------------------------------------------------------
+#  File                release.yml
+#  Workflow name       Release
+#  Type                Entrypoint (runs in this repo only)
+#  Triggers            push (tags: v*)
+#                      workflow_dispatch (tag input)
+#  Purpose             Publishes the crate to crates.io and the npm package
+#                      to the public npm registry and to GitHub Packages for
+#                      the given tag, creates the corresponding GitHub
+#                      Release, and attaches test/node-kinds.txt and
+#                      versions.json to it as the node-kind stability
+#                      surface (only when the checkout has them — an older
+#                      tag re-dispatched by hand predates both files).
+#                      GitHub Packages requires an npm package name
+#                      scoped to the repository owner, so that job publishes
+#                      under @meloncholera/tree-sitter-razor-modern in its own
+#                      ephemeral checkout only — the public npm package stays
+#                      unscoped. Prebuilt native addons (Linux/Windows,
+#                      Node-API) are built by the prebuild matrix job and
+#                      published inside the npm and GitHub Packages
+#                      tarballs; node-gyp-build already prefers a matching
+#                      prebuild over a source build when one is present, the
+#                      same as a local `npm install` would. A WASM build is
+#                      also attached to the GitHub Release for
+#                      `web-tree-sitter` consumers.
+#
+#                      The workflow_dispatch trigger exists because
+#                      release-tag.yml pushes the tag using GITHUB_TOKEN, and
+#                      GitHub never fires further workflow runs off a
+#                      GITHUB_TOKEN-authored push — the tag push alone would
+#                      never reach this workflow. release-tag.yml explicitly
+#                      dispatches this workflow with the tag it just pushed
+#                      instead of relying on the push event.
+#
+#                      Package versions (package.json, tree-sitter.json) are
+#                      set from the tag at publish time in the working tree
+#                      only, never committed back — the crate's Cargo.toml is
+#                      the one version release-plz.yml keeps in git.
+#
+#                      Every publish step is re-run safe: it checks whether
+#                      the version is already live before publishing, so a
+#                      rerun after a partial failure only finishes what
+#                      didn't land.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.1.1)"
+        required: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  TREE_SITTER_CLI_VERSION: '0.27.0'
+  PREBUILDIFY_VERSION: '6.0.1'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify before publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # v1.97.0 rustc stable as of 2026-08-17 (action itself publishes no version tags)
+
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Regenerate the parser from grammar.js
+        run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter generate
+
+      - name: Fail if the generated parser is out of date
+        run: git diff --exit-code -- src/parser.c src/grammar.json src/node-types.json
+
+      - name: Verify publishable package contents
+        run: |
+          set -euo pipefail
+          cargo package --list --allow-dirty > cargo-package-files.txt
+          grep -Fx 'src/parser.c' cargo-package-files.txt
+          grep -Fx 'src/scanner.c' cargo-package-files.txt
+          grep -Fx 'queries/highlights.scm' cargo-package-files.txt
+          if grep -Eq '(^|/)(\.git|\.worktrees|node_modules|target)/' cargo-package-files.txt; then
+            echo '::error::The crate package contains workspace-only files'
+            exit 1
+          fi
+
+          npm pack --dry-run --json > npm-package.json
+          node -e '
+            const packageInfo = JSON.parse(require("fs").readFileSync("npm-package.json", "utf8"));
+            const pack = Array.isArray(packageInfo) ? packageInfo[0] : packageInfo["tree-sitter-razor-modern"];
+            const files = pack.files.map(({path}) => path);
+            for (const required of ["src/parser.c", "src/scanner.c", "queries/highlights.scm"]) {
+              if (!files.includes(required)) throw new Error(`npm package is missing ${required}`);
+            }
+            if (files.some(path => /(^|\/)(?:\.git|\.worktrees|node_modules|target)\//.test(path))) {
+              throw new Error("npm package contains workspace-only files");
+            }
+          '
+
+      - name: Run corpus and highlight tests
+        run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter test
+
+      - name: Cargo build & test
+        run: cargo test
+
+  prebuild:
+    name: Prebuild native addon (${{ matrix.os }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Install dependencies
+        # node-addon-api is a runtime dependency binding.gyp resolves at gyp
+        # configure time (`require('node-addon-api').targets`); prebuildify
+        # only installs itself into npx's own ephemeral cache, which that
+        # require can't see. --ignore-scripts skips this package's own
+        # "install": "node-gyp-build" script, which would otherwise try (and
+        # fail, since there's nothing built yet) to load the addon.
+        run: npm install --ignore-scripts
+
+      - name: Build the native Node addon prebuild
+        run: npx --yes prebuildify@${{ env.PREBUILDIFY_VERSION }} --napi --strip
+
+      - name: Upload the prebuild
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: prebuilds-${{ matrix.os }}
+          path: prebuilds/
+          if-no-files-found: error
+
+  build-wasm:
+    name: Build WASM
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Build the WASM grammar
+        run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter build --wasm
+
+      - name: Upload the WASM build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wasm-build
+          path: tree-sitter-razor.wasm
+          if-no-files-found: error
+
+  publish-crate:
+    name: Publish to crates.io
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # v1.97.0 rustc stable as of 2026-08-17 (action itself publishes no version tags)
+
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Publish (skip if this version is already live)
+        # `cargo search` is disabled on crates.io (it errors, pointing at the
+        # web UI instead), so the already-published check queries the
+        # registry API directly.
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://crates.io/api/v1/crates/tree-sitter-razor-modern/${version}")
+          if [ "$status" = "200" ]; then
+            echo "tree-sitter-razor-modern@${version} is already published, skipping"
+          else
+            cargo publish
+          fi
+
+  publish-npm:
+    name: Publish to npm
+    needs: [verify, prebuild]
+    # A prebuild failure on one platform isn't fatal — node-gyp-build already
+    # falls back to a source build for whichever platform has no matching
+    # prebuild, the same as before this job existed. Waiting for `prebuild`
+    # to finish (rather than skipping ahead of it) without hard-requiring
+    # every leg to succeed keeps that fallback available instead of blocking
+    # the whole npm publish on one platform's toolchain hiccup.
+    if: ${{ !cancelled() && needs.verify.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          registry-url: https://registry.npmjs.org/
+
+      - name: Download the prebuilt native addons
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: prebuilds-*
+          path: prebuilds
+          merge-multiple: true
+
+      - name: Set package version from tag
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          # npm pkg set (unlike `npm version`) writes the field directly
+          # instead of erroring when the new value equals the current one —
+          # package.json can already read the target version ahead of a
+          # release-plz bump that only touched Cargo.toml.
+          npm pkg set "version=${version}"
+          VERSION="$version" node -e '
+            const fs = require("fs");
+            const meta = JSON.parse(fs.readFileSync("tree-sitter.json", "utf8"));
+            meta.metadata.version = process.env.VERSION;
+            fs.writeFileSync("tree-sitter.json", JSON.stringify(meta, null, 2) + "\n");
+          '
+
+      - name: Publish (skip if this version is already live)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if npm view "tree-sitter-razor-modern@${version}" version >/dev/null 2>&1; then
+            echo "tree-sitter-razor-modern@${version} is already published, skipping"
+          else
+            npm publish --access public --provenance
+          fi
+
+  publish-github-packages:
+    name: Publish to GitHub Packages
+    needs: [verify, prebuild]
+    # See publish-npm's own comment on this same `if:` — a prebuild failure
+    # on one platform falls back to a source build rather than blocking
+    # this publish entirely.
+    if: ${{ !cancelled() && needs.verify.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      # GitHub Packages requires the scope to match the repository owner;
+      # deriving it keeps an ownership transfer from needing a workflow edit.
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          registry-url: https://npm.pkg.github.com
+          scope: '@${{ github.repository_owner }}'
+
+      - name: Download the prebuilt native addons
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: prebuilds-*
+          path: prebuilds
+          merge-multiple: true
+
+      - name: Set package name and version for GitHub Packages
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          # GitHub Packages requires the npm package name to be scoped to the
+          # repository owner; this only ever changes this job's own ephemeral
+          # checkout, never the committed package.json.
+          npm pkg set "name=@${OWNER}/tree-sitter-razor-modern"
+          npm pkg set "version=${version}"
+
+      - name: Publish (skip if this version is already live)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if npm view "@${OWNER}/tree-sitter-razor-modern@${version}" version >/dev/null 2>&1; then
+            echo "@${OWNER}/tree-sitter-razor-modern@${version} is already published, skipping"
+          else
+            npm publish --access public
+          fi
+
+  github-release:
+    name: Create GitHub Release
+    needs: [publish-crate, publish-npm, publish-github-packages, build-wasm]
+    # The release itself, and the node-kind stability files, don't depend on
+    # the WASM build succeeding — a WASI-SDK download hiccup in build-wasm
+    # shouldn't block release creation once every registry is already
+    # live. Only the three publish jobs are hard-required.
+    if: ${{ !cancelled() && needs.publish-crate.result == 'success' && needs.publish-npm.result == 'success' && needs.publish-github-packages.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Download the WASM build
+        if: needs.build-wasm.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wasm-build
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+
+      - name: Attach the WASM build
+        if: needs.build-wasm.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" tree-sitter-razor.wasm --clobber
+
+      - name: Attach the node-kind stability surface
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # A manual re-dispatch can target a tag cut before versions.json
+          # existed; only upload what the checkout actually has, so a
+          # recovery run against an old tag doesn't fail the whole job.
+          assets=()
+          for f in test/node-kinds.txt versions.json; do
+            [ -f "$f" ] && assets+=("$f")
+          done
+          gh release upload "$TAG" "${assets[@]}" --clobber

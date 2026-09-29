@@ -1,0 +1,59 @@
+# =============================================================================
+#  tree-sitter-razor-modern · GitHub Actions
+# -----------------------------------------------------------------------------
+#  File                release-tag.yml
+#  Workflow name       Release tag
+#  Type                Entrypoint (runs in this repo only)
+#  Triggers            pull_request (closed, base main)
+#  Purpose             Tags the version once release-plz.yml's release PR
+#                      (head branch release-plz/release) is merged into main.
+#                      A tag ref isn't covered by this repo's branch
+#                      rulesets, so pushing it needs no PR — but GitHub never
+#                      fires further workflow runs off a GITHUB_TOKEN-
+#                      authored push, so the tag push alone would never reach
+#                      release.yml's crates.io + npm publish sequence. This
+#                      workflow explicitly dispatches release.yml with the
+#                      tag it just pushed instead of relying on that event.
+# =============================================================================
+
+name: Release tag
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'release-plz/release' && github.event.pull_request.user.login == 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Tag the release and dispatch the publish workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          tag="v${version}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists — nothing to release."
+            exit 0
+          fi
+          git tag -a "${tag}" -m "${tag}"
+          git push origin "${tag}"
+          gh workflow run release.yml --ref main -f "tag=${tag}"

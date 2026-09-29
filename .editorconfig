@@ -1,43 +1,20 @@
+# Editor configuration, see https://editorconfig.org
 root = true
 
 [*]
 charset = utf-8
-
-[*.{json,toml,yml,gyp}]
+end_of_line = lf
 indent_style = space
-indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
 
-[*.js]
-indent_style = space
-indent_size = 2
-
-[*.scm]
-indent_style = space
-indent_size = 2
-
-[*.{c,cc,h}]
-indent_style = space
+[*.{c,h,cc,rs}]
 indent_size = 4
 
-[*.rs]
-indent_style = space
-indent_size = 4
-
-[*.{py,pyi}]
-indent_style = space
-indent_size = 4
-
-[*.swift]
-indent_style = space
-indent_size = 4
-
-[*.go]
-indent_style = tab
-indent_size = 8
-
-[Makefile]
-indent_style = tab
-indent_size = 8
-
-[parser.c]
+[*.{ts,js,mjs,json,toml,yml}]
 indent_size = 2
+
+[*.md]
+indent_size = 2
+max_line_length = off
+trim_trailing_whitespace = false

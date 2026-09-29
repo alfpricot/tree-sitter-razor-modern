@@ -1,0 +1,374 @@
+# =============================================================================
+#  tree-sitter-razor-modern · GitHub Actions
+# -----------------------------------------------------------------------------
+#  File                verify.yml
+#  Workflow name       Verify
+#  Type                Entrypoint (runs in this repo only)
+#  Triggers            pull_request
+#                      push (dev, main)
+#                      workflow_dispatch
+#  Purpose             Regenerate the parser from grammar.js, fail on any
+#                      drift in the generated parser or the committed
+#                      node-kind snapshot, lint and format-check the grammar
+#                      JavaScript, run the tree-sitter corpus and highlight
+#                      tests, parse every example stylesheet and fail on
+#                      any ERROR/MISSING/zero-width node, build and test the
+#                      Rust binding, build and test the Node binding,
+#                      validate the PR title, scan for secrets, and lint
+#                      workflow/YAML files. A final aggregate job rolls
+#                      every check up into a single `Verify` status for
+#                      branch rulesets to require.
+#
+#                      workflow_dispatch exists because release-plz.yml and
+#                      sync-dev-from-main.yml push their PR branches with
+#                      GITHUB_TOKEN, which never triggers a pull_request
+#                      run; they dispatch this workflow on that branch so
+#                      the head commit still gets a `Verify` status.
+# =============================================================================
+
+name: Verify
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TREE_SITTER_CLI_VERSION: '0.27.0'
+
+jobs:
+  pr-title:
+    name: PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Validate conventional PR title
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            chore
+            revert
+            ci
+            build
+            security
+
+  secret-scanning:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: '8.30.1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Cache Gitleaks
+        id: cache-gitleaks
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/bin/gitleaks
+          key: gitleaks-${{ env.GITLEAKS_VERSION }}-linux-x64
+
+      - name: Install Gitleaks
+        if: steps.cache-gitleaks.outputs.cache-hit != 'true'
+        env:
+          VERSION: ${{ env.GITLEAKS_VERSION }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}"
+          asset="gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$tmp/$asset" "$base/$asset"
+          curl -sSfL -o "$tmp/checksums.txt" "$base/gitleaks_${VERSION}_checksums.txt"
+          ( cd "$tmp" && grep " $asset\$" checksums.txt | sha256sum --check - )
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf "$tmp/$asset" -C "$tmp" gitleaks
+          install -m 0755 "$tmp/gitleaks" "$HOME/.local/bin/gitleaks"
+
+      - name: Scan the working tree with Gitleaks
+        run: $HOME/.local/bin/gitleaks detect --no-git --source . --exit-code 1 --report-format json --report-path gitleaks-report.json
+
+      - name: Scan Git history with Gitleaks
+        run: $HOME/.local/bin/gitleaks detect --source . --exit-code 1 --report-format json --report-path gitleaks-history-report.json
+
+      - name: Upload Gitleaks report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: ignore
+
+  verify:
+    name: Grammar, Rust build/test
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # v1.97.0 rustc stable as of 2026-08-17 (action itself publishes no version tags)
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Regenerate the parser from grammar.js
+        run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter generate
+
+      - name: Fail if the generated parser is out of date
+        run: git diff --exit-code -- src/parser.c src/grammar.json src/node-types.json
+
+      - name: Fail if the node-kind snapshot is out of date
+        run: |
+          git ls-files --error-unmatch test/node-kinds.txt
+          node test/generate-node-kinds.mjs
+          git diff --exit-code -- test/node-kinds.txt
+
+      - name: Install lint/format devDependencies
+        # A bare `npm install` here would also run this package's own
+        # "install": "node-gyp-build" lifecycle script and fail without
+        # MSVC; --ignore-scripts installs the declared devDependencies
+        # (eslint, @eslint/js, prettier) without running any of them.
+        # ESLint's flat config resolves its own imports (@eslint/js) from
+        # this checkout's node_modules, so this step is required — an
+        # npx --package= invocation installs into a separate ephemeral
+        # cache the config file's own import can't see.
+        run: npm install --ignore-scripts
+
+      - name: Lint the grammar JS
+        run: npm run lint
+
+      - name: Check formatting of the grammar JS
+        run: npm run format:check
+
+      - name: Verify publishable package contents
+        run: |
+          set -euo pipefail
+          cargo package --list --allow-dirty > cargo-package-files.txt
+          grep -Fx 'src/parser.c' cargo-package-files.txt
+          grep -Fx 'src/scanner.c' cargo-package-files.txt
+          grep -Fx 'queries/highlights.scm' cargo-package-files.txt
+          if grep -Eq '(^|/)(\.git|\.worktrees|node_modules|target)/' cargo-package-files.txt; then
+            echo '::error::The crate package contains workspace-only files'
+            exit 1
+          fi
+
+          npm pack --dry-run --json > npm-package.json
+          node -e '
+            const packageInfo = JSON.parse(require("fs").readFileSync("npm-package.json", "utf8"));
+            const pack = Array.isArray(packageInfo) ? packageInfo[0] : packageInfo["tree-sitter-razor-modern"];
+            const files = pack.files.map(({path}) => path);
+            for (const required of ["src/parser.c", "src/scanner.c", "queries/highlights.scm"]) {
+              if (!files.includes(required)) throw new Error(`npm package is missing ${required}`);
+            }
+            if (files.some(path => /(^|\/)(?:\.git|\.worktrees|node_modules|target)\//.test(path))) {
+              throw new Error("npm package contains workspace-only files");
+            }
+          '
+
+      - name: Run corpus and highlight tests
+        run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter test
+
+      - name: Parse every example stylesheet and fail on ERROR/MISSING or zero-width nodes
+        run: |
+          set -euo pipefail
+          if ! combined=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse examples/*.cshtml 2>&1); then
+            combined_failed=1
+          else
+            combined_failed=0
+          fi
+          combined_zero_width_count=$(printf '%s\n' "$combined" | grep -cE '\[([0-9]+), ([0-9]+)\] - \[\1, \2\]' || true)
+          if [ "$combined_failed" -eq 0 ] && [ "$combined_zero_width_count" -eq 0 ]; then
+            exit 0
+          fi
+
+          echo "::warning::Combined example parse found a problem — re-parsing each example individually to identify it."
+          fail=0
+          for f in examples/*.cshtml; do
+            if ! output=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse "$f" 2>&1); then
+              parse_failed=1
+            else
+              parse_failed=0
+            fi
+            error_count=$(printf '%s\n' "$output" | grep -c 'ERROR\|MISSING' || true)
+            zero_width_count=$(printf '%s\n' "$output" | grep -cE '\[([0-9]+), ([0-9]+)\] - \[\1, \2\]' || true)
+            if [ "$parse_failed" -eq 1 ] && [ "$error_count" -eq 0 ]; then
+              echo "::error file=$f::tree-sitter parse exited non-zero with no ERROR/MISSING node detected (possible crash)"
+              printf '%s\n' "$output"
+              fail=1
+            elif [ "$error_count" -ne 0 ] || [ "$zero_width_count" -ne 0 ]; then
+              echo "::error file=$f::$error_count ERROR/MISSING node(s), $zero_width_count zero-width node(s)"
+              fail=1
+            fi
+          done
+          exit "$fail"
+
+      - name: Report example parse performance
+        run: |
+          set -euo pipefail
+          stats=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse --quiet --time --stat examples/*.cshtml 2>&1 | grep '^Total parses:')
+          parser_bytes=$(wc -c < src/parser.c)
+          {
+            echo "### Example parse performance"
+            echo "- ${stats}"
+            echo "- \`src/parser.c\`: ${parser_bytes} bytes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Cargo build & test
+        run: cargo test
+
+  node-binding:
+    name: Node binding build/test
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Install dependencies and build the native addon
+        run: npm install
+
+      - name: Run the Node binding tests
+        run: npm test
+
+  workflow-meta:
+    name: Workflow and YAML checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      ACTIONLINT_VERSION: '1.7.12'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Cache actionlint
+        id: cache-actionlint
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/bin/actionlint
+          key: actionlint-linux-amd64-${{ env.ACTIONLINT_VERSION }}
+
+      - name: Install actionlint
+        if: steps.cache-actionlint.outputs.cache-hit != 'true'
+        env:
+          VERSION: ${{ env.ACTIONLINT_VERSION }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          base="https://github.com/rhysd/actionlint/releases/download/v${VERSION}"
+          asset="actionlint_${VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o "$tmp/$asset" "$base/$asset"
+          curl -sSfL -o "$tmp/checksums.txt" "$base/actionlint_${VERSION}_checksums.txt"
+          ( cd "$tmp" && grep " $asset\$" checksums.txt | sha256sum --check - )
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf "$tmp/$asset" -C "$tmp" actionlint
+          install -m 0755 "$tmp/actionlint" "$HOME/.local/bin/actionlint"
+
+      - name: Run actionlint
+        run: $HOME/.local/bin/actionlint -color -ignore 'SC[0-9]+:(info|style):'
+
+      - name: Validate YAML files
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet pyyaml
+          python3 - <<'PYEOF'
+          import sys
+          import yaml
+          from pathlib import Path
+
+          ignored = {".git", "node_modules", "target", "dist"}
+          failures = []
+          for path in Path(".").rglob("*.y*ml"):
+              if any(part in ignored for part in path.parts):
+                  continue
+              try:
+                  with path.open("r", encoding="utf-8") as f:
+                      list(yaml.safe_load_all(f))
+              except yaml.YAMLError as exc:
+                  failures.append(f"{path}: {exc}")
+
+          if failures:
+              print("Invalid YAML found:")
+              for failure in failures:
+                  print(f"  {failure}")
+              sys.exit(1)
+          print("All YAML files parsed cleanly.")
+          PYEOF
+
+  ci:
+    # A dispatched run must report as `Verify` too: it is how a
+    # GITHUB_TOKEN-pushed release or sync branch satisfies the required check.
+    name: ${{ github.event_name == 'push' && 'Verify (push)' || 'Verify' }}
+    needs: [verify, node-binding, secret-scanning, pr-title, workflow-meta]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # A draft PR must never show this aggregate as green while `verify`
+      # was skipped by the draft guard above.
+      - name: Require a full run for a ready PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft
+        run: |
+          echo '::error::The full verify suite runs when this draft is marked ready for review.'
+          exit 1
+
+      - name: Fail if any job failed, was cancelled, or was unexpectedly skipped
+        if: always()
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || (github.event_name == 'pull_request' && contains(needs.*.result, 'skipped')) }}" == "true" ]]; then
+            echo '::error::One or more required jobs failed, were cancelled, or were skipped.'
+            exit 1
+          fi

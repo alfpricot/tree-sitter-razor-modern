@@ -1,3 +1,19 @@
+## Custom
+
+tmp/
+Cargo.lock
+node_modules
+.node-version
+build
+*.log
+/test.js
+/examples/npm
+package-lock.json
+/target/
+/.build/
+
+## Generated Entries
+
 # Rust artifacts
 target/
 
@@ -17,6 +33,7 @@ _obj/
 dist/
 *.egg-info
 *.whl
+__pycache__/
 
 # C artifacts
 *.a
@@ -25,6 +42,13 @@ dist/
 *.dylib
 *.dll
 *.pc
+*.exp
+*.lib
+
+# Zig artifacts
+.zig-cache/
+zig-cache/
+zig-out/
 
 # Example dirs
 /examples/*/
