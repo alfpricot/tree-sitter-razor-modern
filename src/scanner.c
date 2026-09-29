@@ -17,6 +17,10 @@ enum TokenType {
     RAW_STRING_START,
     RAW_STRING_END,
     RAW_STRING_CONTENT,
+    IMPLICIT_DOT,
+    IMPLICIT_PAREN,
+    IMPLICIT_BRACKET,
+    IMPLICIT_LT,
 };
 
 typedef enum {
@@ -107,6 +111,63 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
     assert(size == length);
 }
 
+// Scans the continuation of a Razor implicit expression (`@a.b(c)[0]`, `@a<T>()`). Each token
+// must begin exactly where the previous one ended, so no whitespace is skipped, and a `.` or `<`
+// only counts when what follows shows it belongs to the expression: `@a. b`, `@a.@b`, and
+// `@a<br />` end the expression and leave the punctuation to the surrounding text.
+static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols) {
+    int32_t c = lexer->lookahead;
+
+    if (c == '(' && valid_symbols[IMPLICIT_PAREN]) {
+        advance(lexer);
+        lexer->result_symbol = IMPLICIT_PAREN;
+        return true;
+    }
+
+    if (c == '[' && valid_symbols[IMPLICIT_BRACKET]) {
+        advance(lexer);
+        lexer->result_symbol = IMPLICIT_BRACKET;
+        return true;
+    }
+
+    if (c == '.' && valid_symbols[IMPLICIT_DOT]) {
+        advance(lexer);
+        lexer->mark_end(lexer);
+        if (lexer->lookahead == '_' || iswalpha(lexer->lookahead)) {
+            lexer->result_symbol = IMPLICIT_DOT;
+            return true;
+        }
+        return false;
+    }
+
+    if (c == '<' && valid_symbols[IMPLICIT_LT]) {
+        advance(lexer);
+        lexer->mark_end(lexer);
+        // The type argument list must be balanced, made only of type characters, and be
+        // followed directly by a call: anything else (`<b>`, `</td>`, `<br />`) is markup.
+        unsigned depth = 1;
+        while (depth > 0) {
+            c = lexer->lookahead;
+            if (c == '<') {
+                depth++;
+            } else if (c == '>') {
+                depth--;
+            } else if (!(iswalnum(c) || c == '_' || c == '.' || c == ',' || c == '?' || c == '[' ||
+                         c == ']' || c == ':' || c == '*' || iswspace(c))) {
+                return false;
+            }
+            advance(lexer);
+        }
+        if (lexer->lookahead == '(') {
+            lexer->result_symbol = IMPLICIT_LT;
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
 bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
 
@@ -117,6 +178,11 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // error recovery, gives better trees this way
     if (valid_symbols[OPT_SEMI] && valid_symbols[INTERPOLATION_REGULAR_START]) {
         return false;
+    }
+
+    if (valid_symbols[IMPLICIT_DOT] || valid_symbols[IMPLICIT_PAREN] ||
+        valid_symbols[IMPLICIT_BRACKET] || valid_symbols[IMPLICIT_LT]) {
+        return scan_implicit_continuation(lexer, valid_symbols);
     }
 
     if (valid_symbols[OPT_SEMI]) {
