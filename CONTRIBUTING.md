@@ -19,10 +19,11 @@ cargo test
 ```
 
 `test/corpus/` contains tree assertions for each Razor construct, and `examples/*.cshtml` holds
-sanitized real pages that must parse with no `ERROR`, `MISSING`, or zero-width nodes:
+sanitized real pages that must parse with no `ERROR`, `MISSING`, or zero-width nodes. This script
+runs the same per-file check as the verify workflow; set `TREE_SITTER` to the CLI to use:
 
 ```sh
-CC=gcc CXX=g++ npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter parse examples/*.cshtml
+TREE_SITTER=tree-sitter bash test/check-examples.sh
 ```
 
 Regenerate the node-kind snapshot after a node-kind or field-name change:
