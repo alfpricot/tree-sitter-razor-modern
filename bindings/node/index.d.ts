@@ -25,10 +25,10 @@ type NodeInfo =
  *
  * @example
  * import Parser from "tree-sitter";
- * import CSS from "tree-sitter-razor-modern";
+ * import Razor from "tree-sitter-razor-modern";
  *
  * const parser = new Parser();
- * parser.setLanguage(CSS);
+ * parser.setLanguage(Razor);
  */
 declare const binding: {
   /**

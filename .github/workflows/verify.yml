@@ -11,7 +11,7 @@
 #                      drift in the generated parser or the committed
 #                      node-kind snapshot, lint and format-check the grammar
 #                      JavaScript, run the tree-sitter corpus and highlight
-#                      tests, parse every example stylesheet and fail on
+#                      tests, parse every example page and fail on
 #                      any ERROR/MISSING/zero-width node, build and test the
 #                      Rust binding, build and test the Node binding,
 #                      validate the PR title, scan for secrets, and lint
@@ -149,6 +149,17 @@ jobs:
       - name: Cache cargo registry and build artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      - name: Install devDependencies
+        # grammar.js imports tree-sitter-c-sharp from node_modules, so this
+        # must run before `tree-sitter generate`. A bare `npm install` would
+        # also run this package's own "install": "node-gyp-build" lifecycle
+        # script and fail without MSVC; --ignore-scripts installs the
+        # declared devDependencies (eslint, @eslint/js, prettier,
+        # tree-sitter-c-sharp) without running any lifecycle script. ESLint's
+        # flat config also resolves its own imports from this checkout's
+        # node_modules.
+        run: npm install --ignore-scripts
+
       - name: Regenerate the parser from grammar.js
         run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter generate
 
@@ -160,17 +171,6 @@ jobs:
           git ls-files --error-unmatch test/node-kinds.txt
           node test/generate-node-kinds.mjs
           git diff --exit-code -- test/node-kinds.txt
-
-      - name: Install lint/format devDependencies
-        # A bare `npm install` here would also run this package's own
-        # "install": "node-gyp-build" lifecycle script and fail without
-        # MSVC; --ignore-scripts installs the declared devDependencies
-        # (eslint, @eslint/js, prettier) without running any of them.
-        # ESLint's flat config resolves its own imports (@eslint/js) from
-        # this checkout's node_modules, so this step is required — an
-        # npx --package= invocation installs into a separate ephemeral
-        # cache the config file's own import can't see.
-        run: npm install --ignore-scripts
 
       - name: Lint the grammar JS
         run: npm run lint
@@ -206,7 +206,7 @@ jobs:
       - name: Run corpus and highlight tests
         run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter test
 
-      - name: Parse every example stylesheet and fail on ERROR/MISSING or zero-width nodes
+      - name: Parse every example page and fail on ERROR/MISSING or zero-width nodes
         run: |
           set -euo pipefail
           if ! combined=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse examples/*.cshtml 2>&1); then

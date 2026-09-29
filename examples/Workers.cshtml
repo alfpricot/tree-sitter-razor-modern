@@ -1,0 +1,45 @@
+@page
+@model WorkersModel
+@{
+    ViewData["Title"] = "Workers";
+    // A worker or one-shot run reports a heartbeat only from inside the loop that already writes
+    // one (see WorkerHeartbeatReporter) -- a process that crashed outright, or was killed before
+    // its own shutdown report, leaves its row exactly where it last checked in. There is no
+    // separate liveness signal here, so "stale" is inferred from how long ago that was rather
+    // than asserted. An unchanged heartbeat is rewritten at least every two and a half minutes
+    // (half this window) rather than on every loop poll, so an idle worker stays fresh while a
+    // dead one crosses it.
+    TimeSpan staleAfter = TimeSpan.FromMinutes(5);
+}
+
+<h1>Workers</h1>
+
+@if (!Model.IsConfigured)
+{
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    <p>A row that has not checked in within the last five minutes is shown as stale -- that covers both a scheduled worker whose container recycled and a one-shot CLI run that already exited.</p>
+    @if (Model.Workers.Count == 0)
+    {
+        <p class="empty-state">No worker heartbeat has been recorded. Start a worker or wait for its next scheduled check-in.</p>
+    }
+    <div class="table-scroll" tabindex="0"><table>
+        <caption>Worker heartbeats</caption><thead><tr><th scope="col">Worker</th><th scope="col">Host</th><th scope="col">Version</th><th scope="col">Activity</th><th scope="col">Source</th><th scope="col">Last seen</th></tr></thead>
+        <tbody>
+            @foreach (WorkerHeartbeat worker in Model.Workers)
+            {
+                bool stale = (DateTimeOffset.UtcNow - worker.LastSeenAt) > staleAfter;
+                <tr class="@(stale ? "stale" : null)">
+                    <td>@worker.WorkerId</td>
+                    <td>@worker.Host</td>
+                    <td>@worker.Version</td>
+                    <td>@worker.CurrentActivity</td>
+                    <td>@(worker.SourceName ?? "-")</td>
+                    <td><utc-time value="@worker.LastSeenAt" /> @(stale ? "(stale)" : "")</td>
+                </tr>
+            }
+        </tbody>
+    </table></div>
+}

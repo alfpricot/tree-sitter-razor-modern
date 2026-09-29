@@ -17,6 +17,7 @@ attribute_argument{name}
 attribute_argument_list
 attribute_list
 attribute_target_specifier
+attribute_value_unquoted
 await_expression
 base_list
 binary_expression{left,operator,right}
@@ -86,6 +87,7 @@ global_attribute
 goto_statement
 group_clause
 html_comment
+html_doctype
 identifier
 if_statement{alternative,condition,consequence}
 implicit_array_creation_expression

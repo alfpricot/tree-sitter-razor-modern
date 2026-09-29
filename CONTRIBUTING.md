@@ -3,6 +3,7 @@
 ## Build
 
 ```sh
+npm install --ignore-scripts
 npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter generate
 cargo build
 ```
@@ -17,8 +18,15 @@ CC=gcc CXX=g++ npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter test
 cargo test
 ```
 
-`test/corpus/` contains tree assertions, including strict CSS behavior for line comments and URL
-forms. Regenerate the node-kind snapshot after a node-kind or field-name change:
+`test/corpus/` contains tree assertions for each Razor construct, and `examples/*.cshtml` holds
+sanitized real pages that must parse with no `ERROR`, `MISSING`, or zero-width nodes. This script
+runs the same per-file check as the verify workflow; set `TREE_SITTER` to the CLI to use:
+
+```sh
+TREE_SITTER=tree-sitter bash test/check-examples.sh
+```
+
+Regenerate the node-kind snapshot after a node-kind or field-name change:
 
 ```sh
 node test/generate-node-kinds.mjs
