@@ -158,7 +158,11 @@ jobs:
         # tree-sitter-c-sharp) without running any lifecycle script. ESLint's
         # flat config also resolves its own imports from this checkout's
         # node_modules.
-        run: npm install --ignore-scripts
+        run: |
+          npm install --ignore-scripts
+          # --ignore-scripts skips the CLI's binary download; fetch it so
+          # later steps that call tree-sitter through npx find a working copy.
+          npm rebuild tree-sitter-cli
 
       - name: Regenerate the parser from grammar.js
         run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter generate
@@ -177,6 +181,9 @@ jobs:
 
       - name: Check formatting of the grammar JS
         run: npm run format:check
+
+      - name: Test the release policy scripts
+        run: node --test tools/*.test.mjs
 
       - name: Verify publishable package contents
         run: |
