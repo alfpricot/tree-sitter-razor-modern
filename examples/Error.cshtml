@@ -1,0 +1,21 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Something went wrong";
+}
+
+<h1>Something went wrong</h1>
+
+<p>
+    The request could not be completed. The details were written to the application log.
+</p>
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        Quote this request identifier when reporting the problem:
+        <code>@Model.RequestId</code>
+    </p>
+}
+
+<p><a asp-page="/Index">Back to the home page</a></p>

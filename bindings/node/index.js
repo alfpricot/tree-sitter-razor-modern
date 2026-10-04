@@ -18,7 +18,10 @@ try {
   // node-types.json is optional; nodeTypeInfo stays unset if it's missing.
 }
 
-const queries = [['HIGHLIGHTS_QUERY', `${root}/queries/highlights.scm`]];
+const queries = [
+  ['HIGHLIGHTS_QUERY', `${root}/queries/highlights.scm`],
+  ['INJECTIONS_QUERY', `${root}/queries/injections.scm`],
+];
 
 for (const [prop, path] of queries) {
   Object.defineProperty(binding, prop, {

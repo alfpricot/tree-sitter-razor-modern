@@ -16,6 +16,8 @@ const treeSitterDslGlobals = {
   field: 'readonly',
   alias: 'readonly',
   token: 'readonly',
+  blank: 'readonly',
+  reserved: 'readonly',
 };
 
 export default [
@@ -25,6 +27,10 @@ export default [
       // `(_) => ...` is this grammar's own convention for "the tree-sitter
       // $ param is unused in this rule" — see grammar/keywords.js.
       'no-unused-vars': ['error', { argsIgnorePattern: '^_$' }],
+      // Grammar regexes are compiled by tree-sitter's Rust regex engine, not by JS: it needs `\[`
+      // escaped inside a character class (a bare `[` starts a nested class and fails generate), so
+      // an escape this rule reports as useless is required there.
+      'no-useless-escape': 'off',
     },
   },
   {
@@ -33,9 +39,6 @@ export default [
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: treeSitterDslGlobals,
-    },
-    rules: {
-      'no-useless-escape': 'off',
     },
   },
   {

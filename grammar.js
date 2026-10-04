@@ -9,14 +9,31 @@
 
 import CSHARP from 'tree-sitter-c-sharp/grammar.js';
 
+/**
+ * Zero or more comma-separated items.
+ * @param {RuleOrLiteral} rule
+ */
+function commaSep(rule) {
+  return optional(commaSep1(rule));
+}
+
+/**
+ * One or more comma-separated items.
+ * @param {RuleOrLiteral} rule
+ */
+function commaSep1(rule) {
+  return seq(rule, repeat(seq(',', rule)));
+}
+
 export default grammar(CSHARP, {
-  name: "razor",
+  name: 'razor',
+
+  externals: ($, original) =>
+    original.concat([$._implicit_dot, $._implicit_paren, $._implicit_bracket, $._implicit_lt]),
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],
 
   conflicts: ($, o) => [
-    [$.razor_explicit_expression, $._expression_statement_expression],
-
     [
       $.preproc_if,
       $.preproc_if_in_top_level,
@@ -45,7 +62,6 @@ export default grammar(CSHARP, {
 
     [$.destructor_declaration, $._simple_name],
 
-    [$.initializer_expression, $.razor_block],
     [$.field_declaration, $.local_declaration_statement],
     ...o,
   ],
@@ -73,7 +89,9 @@ export default grammar(CSHARP, {
             $.razor_taghelperprefix_directive,
           ),
         ),
-        repeat(choice($._node, $.razor_block)),
+        // Text is only valid after the first node or block: directly after a directive, a
+        // text run would compete with the string that `@page` optionally takes.
+        optional(seq($._node, repeat(choice($._node, $._html_text)))),
       ),
 
     _identifier_token: (_) =>
@@ -99,7 +117,7 @@ export default grammar(CSHARP, {
         $.preproc_undef,
       ),
 
-    block: ($) => seq("{", repeat($._csharp_nodes), "}"),
+    block: ($) => seq('{', repeat($._csharp_nodes), '}'),
 
     _node: ($) =>
       prec.right(
@@ -117,384 +135,361 @@ export default grammar(CSHARP, {
           $.razor_implicit_expression,
           $.razor_explicit_expression,
           $.razor_section,
+          $.razor_block,
           $.razor_compound_using,
           $.razor_lock,
           $.element,
           $.html_comment,
+          $.html_doctype,
         ),
       ),
 
-    _razor_marker: (_) => token("@"),
+    _razor_marker: (_) => token('@'),
 
-    razor_escape: ($) =>
-      seq(alias(/@{2}/, "at_at_escape"), alias($._html_text, $.element)),
+    razor_escape: ($) => seq(alias(/@{2}/, 'at_at_escape'), alias($._html_text, $.element)),
 
     razor_page_directive: ($) =>
-      seq(alias(seq($._razor_marker, "page"), "at_page"), $.string_literal),
+      seq(alias(seq($._razor_marker, 'page'), 'at_page'), optional($.string_literal)),
     razor_using_directive: ($) =>
       seq(
-        alias(seq($._razor_marker, "using"), "at_using"),
+        alias(seq($._razor_marker, 'using'), 'at_using'),
         choice(
-          seq(optional("unsafe"), field("name", $.identifier), "=", $.type),
-          seq(optional("static"), optional("unsafe"), $._name),
+          seq(optional('unsafe'), field('name', $.identifier), '=', $.type),
+          seq(optional('static'), optional('unsafe'), $._name),
         ),
       ),
     razor_model_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "model"), "at_model"),
-        field("name", $._name),
-      ),
+      seq(alias(seq($._razor_marker, 'model'), 'at_model'), field('name', $._name)),
     razor_preservewhitespace_directive: ($) =>
       seq(
-        alias(
-          seq($._razor_marker, "preservewhitespace"),
-          "at_preservewhitespace",
-        ),
+        alias(seq($._razor_marker, 'preservewhitespace'), 'at_preservewhitespace'),
         $.boolean_literal,
       ),
     razor_attribute_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "attribute"), "at_attribute"),
-        $.attribute_list,
-      ),
+      seq(alias(seq($._razor_marker, 'attribute'), 'at_attribute'), $.attribute_list),
     razor_implements_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "implements"), "at_implements"),
-        field("name", $._name),
-      ),
+      seq(alias(seq($._razor_marker, 'implements'), 'at_implements'), field('name', $._name)),
     razor_layout_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "layout"), "at_layout"),
-        field("name", $._name),
-      ),
+      seq(alias(seq($._razor_marker, 'layout'), 'at_layout'), field('name', $._name)),
     razor_inherits_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "inherits"), "at_inherits"),
-        field("name", $._name),
-      ),
+      seq(alias(seq($._razor_marker, 'inherits'), 'at_inherits'), field('name', $._name)),
     razor_typeparam_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "typeparam"), "at_typeparam"),
-        field("name", $._name),
-      ),
+      seq(alias(seq($._razor_marker, 'typeparam'), 'at_typeparam'), field('name', $._name)),
     razor_inject_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "inject"), "at_inject"),
-        $.variable_declaration,
-      ),
+      seq(alias(seq($._razor_marker, 'inject'), 'at_inject'), $.variable_declaration),
     razor_namespace_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "namespace"), "at_namespace"),
-        $.qualified_name,
-      ),
+      seq(alias(seq($._razor_marker, 'namespace'), 'at_namespace'), $.qualified_name),
     razor_rendermode_directive: ($) =>
-      seq(
-        alias(seq($._razor_marker, "rendermode"), "at_rendermode"),
-        $.razor_rendermode,
-      ),
+      seq(alias(seq($._razor_marker, 'rendermode'), 'at_rendermode'), $.razor_rendermode),
     razor_rendermode: (_) =>
-      choice("InteractiveServer", "InteractiveWebAssembly", "InteractiveAuto"),
+      choice('InteractiveServer', 'InteractiveWebAssembly', 'InteractiveAuto'),
 
     _taghelper_target: ($) =>
-      seq(
-        choice($.identifier, alias("*", $.taghelper_wildcard)),
-        ",",
-        field("assembly", $._name),
-      ),
+      seq(choice($.identifier, alias('*', $.taghelper_wildcard)), ',', field('assembly', $._name)),
     razor_addtaghelper_directive: ($) =>
       seq(
-        alias(seq($._razor_marker, "addTagHelper"), "at_addtaghelper"),
+        alias(seq($._razor_marker, 'addTagHelper'), 'at_addtaghelper'),
         choice($.string_literal, $._taghelper_target),
       ),
     razor_removetaghelper_directive: ($) =>
       seq(
-        alias(seq($._razor_marker, "removeTagHelper"), "at_removetaghelper"),
+        alias(seq($._razor_marker, 'removeTagHelper'), 'at_removetaghelper'),
         choice($.string_literal, $._taghelper_target),
       ),
     razor_taghelperprefix_directive: ($) =>
       seq(
-        alias(seq($._razor_marker, "tagHelperPrefix"), "at_taghelperprefix"),
+        alias(seq($._razor_marker, 'tagHelperPrefix'), 'at_taghelperprefix'),
         choice($.string_literal, $.identifier),
       ),
 
     razor_block: ($) =>
       prec.left(
         seq(
-          alias(
-            seq($._razor_marker, optional(choice("code", "functions"))),
-            "at_block",
-          ),
-          "{",
+          alias(seq($._razor_marker, optional(choice('code', 'functions'))), 'at_block'),
+          '{',
           repeat(choice($.declaration, seq($.statement), $._node)),
-          "}",
+          '}',
         ),
       ),
 
     razor_explicit_expression: ($) =>
       prec.right(
         seq(
-          alias($._razor_marker, "at_explicit"),
-          prec.right($.parenthesized_expression),
+          alias($._razor_marker, 'at_explicit'),
+          prec.right(
+            choice(
+              $.parenthesized_expression,
+              alias($._parenthesized_lvalue_expression, $.parenthesized_expression),
+            ),
+          ),
         ),
       ),
 
+    // An implicit expression ends at the first character that cannot continue a member,
+    // call, or index chain, so every continuation token is immediate: `@a.b(c)[0]` is one
+    // expression, while `@a. b`, `@a (b)`, and `@a.@b` leave the trailing text outside it.
     razor_implicit_expression: ($) =>
-      seq(alias($._razor_marker, "at_implicit"), prec.left($.expression)),
+      seq(alias($._razor_marker, 'at_implicit'), $._implicit_expression),
+
+    _implicit_expression: ($) =>
+      choice($._implicit_chain, $.boolean_literal, alias($._implicit_await, $.await_expression)),
+
+    _implicit_await: ($) => seq('await', $._implicit_chain),
+
+    _implicit_chain: ($) =>
+      choice(
+        $.identifier,
+        'this',
+        alias($._implicit_generic_name, $.generic_name),
+        alias($._implicit_member, $.member_access_expression),
+        alias($._implicit_invocation, $.invocation_expression),
+        alias($._implicit_index, $.element_access_expression),
+      ),
+
+    _implicit_identifier: (_) =>
+      token.immediate(
+        /(\p{XID_Start}|_|\\u[0-9A-Fa-f]{4}|\\U[0-9A-Fa-f]{8})(\p{XID_Continue}|\\u[0-9A-Fa-f]{4}|\\U[0-9A-Fa-f]{8})*/,
+      ),
+
+    _implicit_type_argument_list: ($) => seq($._implicit_lt, commaSep1($.type), '>'),
+
+    _implicit_type_arguments: ($) => alias($._implicit_type_argument_list, $.type_argument_list),
+
+    _implicit_generic_name: ($) => seq($.identifier, $._implicit_type_arguments),
+
+    _implicit_member_generic_name: ($) =>
+      seq(alias($._implicit_identifier, $.identifier), $._implicit_type_arguments),
+
+    _implicit_member_name: ($) =>
+      choice(
+        alias($._implicit_identifier, $.identifier),
+        alias($._implicit_member_generic_name, $.generic_name),
+      ),
+
+    _implicit_member: ($) =>
+      seq(
+        field('expression', $._implicit_chain),
+        alias($._implicit_dot, '.'),
+        field('name', $._implicit_member_name),
+      ),
+
+    _implicit_argument_list: ($) => seq(alias($._implicit_paren, '('), commaSep($.argument), ')'),
+
+    _implicit_invocation: ($) =>
+      seq(
+        field('function', $._implicit_chain),
+        field('arguments', alias($._implicit_argument_list, $.argument_list)),
+      ),
+
+    _implicit_subscript: ($) => seq(alias($._implicit_bracket, '['), commaSep1($.argument), ']'),
+
+    _implicit_index: ($) =>
+      seq(
+        field('expression', $._implicit_chain),
+        field('subscript', alias($._implicit_subscript, $.bracketed_argument_list)),
+      ),
 
     razor_lock: ($) =>
       seq(
-        alias(seq($._razor_marker, "lock"), "at_lock"),
-        "(",
+        alias(seq($._razor_marker, 'lock'), 'at_lock'),
+        '(',
         $.expression,
-        ")",
-        "{",
+        ')',
+        '{',
         $._blended_content,
-        "}",
+        '}',
       ),
 
     razor_compound_using: ($) =>
       seq(
-        alias(seq($._razor_marker, "using"), "at_using"),
-        "(",
-        choice(
-          alias($.using_variable_declaration, $.variable_declaration),
-          $.expression,
-        ),
-        ")",
-        "{",
+        alias(seq($._razor_marker, 'using'), 'at_using'),
+        '(',
+        choice(alias($.using_variable_declaration, $.variable_declaration), $.expression),
+        ')',
+        '{',
         $._blended_content,
-        "}",
+        '}',
       ),
 
     razor_if: ($) =>
       seq(
-        alias(seq($._razor_marker, "if"), "at_if"),
+        alias(seq($._razor_marker, 'if'), 'at_if'),
         $.razor_condition,
-        seq("{", $._blended_content, "}"),
+        seq('{', $._blended_content, '}'),
         repeat(choice($.razor_else_if, $.razor_else)),
       ),
 
     razor_try: ($) =>
       prec.right(
         seq(
-          alias(seq($._razor_marker, "try"), "at_try"),
-          "{",
+          alias(seq($._razor_marker, 'try'), 'at_try'),
+          '{',
           $._blended_content,
-          "}",
+          '}',
           repeat(choice($.razor_catch, $.razor_finally)),
         ),
       ),
 
     razor_catch: ($) =>
       seq(
-        token(prec(10, "catch")),
+        token(prec(10, 'catch')),
         repeat(choice($.catch_declaration, $.catch_filter_clause)),
-        "{",
+        '{',
         $._blended_content,
-        "}",
+        '}',
       ),
 
-    razor_finally: ($) =>
-      seq(
-        token(prec(10, "finally")),
-        "{",
-        $._blended_content,
-        "}"
-      ),
+    razor_finally: ($) => seq(token(prec(10, 'finally')), '{', $._blended_content, '}'),
 
     razor_else_if: ($) =>
-      seq(
-        token(prec(10, "else")),
-        "if",
-        $.razor_condition,
-        "{",
-        $._blended_content,
-        "}"
-      ),
+      seq(token(prec(10, 'else')), 'if', $.razor_condition, '{', $._blended_content, '}'),
 
-    razor_else: ($) =>
-      seq(
-        token(prec(10, "else")),
-        "{",
-        $._blended_content,
-        "}"
-      ),
+    razor_else: ($) => seq(token(prec(10, 'else')), '{', $._blended_content, '}'),
 
     razor_switch: ($) =>
       seq(
-        alias(seq($._razor_marker, "switch"), "at_switch"),
+        alias(seq($._razor_marker, 'switch'), 'at_switch'),
         $.razor_condition,
-        "{",
+        '{',
         repeat(choice($.razor_switch_case, $.razor_switch_default)),
-        "}",
+        '}',
       ),
 
-    razor_condition: ($) => prec(10, seq("(", $.expression, ")")),
+    razor_condition: ($) => prec(10, seq('(', $.expression, ')')),
 
     razor_switch_case: ($) =>
-      prec.left(
-        seq(
-          "case",
-          $.razor_case_condition,
-          ":",
-          $._blended_content,
-          optional("break;"),
-        ),
-      ),
+      prec.left(seq('case', $.razor_case_condition, ':', $._blended_content, optional('break;'))),
 
     razor_switch_default: ($) =>
-      prec.right(seq("default", ":", $._blended_content, optional("break;"))),
+      prec.right(seq('default', ':', $._blended_content, optional('break;'))),
 
     razor_case_condition: (_) => /[^:]+/,
 
     _razor_for_initializer: ($) =>
       seq(
-        alias(seq($._razor_marker, "for"), "at_for"),
-        "(",
-        field(
-          "initializer",
-          optional(choice($.variable_declaration, $.expression)),
-        ),
-        ";",
-        field("condition", optional($.expression)),
-        ";",
-        field("update", optional($.expression)),
-        ")",
+        alias(seq($._razor_marker, 'for'), 'at_for'),
+        '(',
+        field('initializer', optional(choice($.variable_declaration, $.expression))),
+        ';',
+        field('condition', optional($.expression)),
+        ';',
+        field('update', optional($.expression)),
+        ')',
       ),
 
-    razor_for: ($) =>
-      seq(
-        $._razor_for_initializer,
-        "{",
-        field("body", $._blended_content),
-        "}",
-      ),
+    razor_for: ($) => seq($._razor_for_initializer, '{', field('body', $._blended_content), '}'),
 
     _blended_content: ($) =>
-      repeat1(
-        prec(
-          10,
-          choice($._node, $.explicit_line_transition, $.statement, $.comment),
-        ),
-      ),
+      repeat1(prec(10, choice($._node, $.explicit_line_transition, $.statement, $.comment))),
 
     _razor_foreach_initializer: ($) =>
       seq(
-        alias(seq($._razor_marker, "foreach"), "at_foreach"),
-        "(",
+        alias(seq($._razor_marker, 'foreach'), 'at_foreach'),
+        '(',
         choice(
-          seq(
-            field("type", $.type),
-            field("left", choice($.identifier, $.tuple_pattern)),
-          ),
-          field("left", $.expression),
+          seq(field('type', $.type), field('left', choice($.identifier, $.tuple_pattern))),
+          field('left', $.expression),
         ),
-        "in",
-        field("right", $.expression),
-        ")",
+        'in',
+        field('right', $.expression),
+        ')',
       ),
 
     razor_foreach: ($) =>
-      seq(
-        $._razor_foreach_initializer,
-        "{",
-        field("body", $._blended_content),
-        "}",
-      ),
+      seq($._razor_foreach_initializer, '{', field('body', $._blended_content), '}'),
 
     razor_while: ($) =>
       seq(
-        alias(seq($._razor_marker, "while"), "at_while"),
+        alias(seq($._razor_marker, 'while'), 'at_while'),
         $.razor_condition,
-        "{",
+        '{',
         $._blended_content,
-        "}",
+        '}',
       ),
 
-    _razor_while_condition: ($) => seq("while", $.razor_condition),
+    _razor_while_condition: ($) => seq('while', $.razor_condition),
 
     razor_do_while: ($) =>
       seq(
-        alias(seq($._razor_marker, "do"), "at_do"),
-        "{",
+        alias(seq($._razor_marker, 'do'), 'at_do'),
+        '{',
         $._blended_content,
-        "}",
+        '}',
         $._razor_while_condition,
-        ";",
+        ';',
       ),
 
     razor_section: ($) =>
       seq(
-        alias(seq($._razor_marker, "section"), "at_section"),
+        alias(seq($._razor_marker, 'section'), 'at_section'),
         $.identifier,
-        "{",
+        '{',
         $._blended_content,
-        "}",
+        '}',
       ),
 
     explicit_line_transition: ($) =>
       prec.left(
-        seq(
-          alias("@:", "at_colon_transition"),
-          alias(token(prec(1, /[^\n\r]+/)), $.element),
-        ),
+        seq(alias('@:', 'at_colon_transition'), alias(token(prec(1, /[^\n\r]+/)), $.element)),
       ),
 
-    razor_comment: ($) => seq("@*", optional($._razor_comment_text), "*@"),
-    _razor_comment_text: (_) => repeat1(/.|\n|\r/),
+    razor_comment: (_) => token(seq('@*', /[^*]*\*+([^@*][^*]*\*+)*/, '@')),
     razor_attribute_name: ($) =>
       seq(
         $._razor_marker,
         seq(
-          choice(
-            "attributes",
-            "bind",
-            "formname",
-            token(prec(10, /on[a-z]+/i)),
-            "key",
-            "ref",
-          ),
+          choice('attributes', 'bind', 'formname', token(prec(10, /on[a-z]+/i)), 'key', 'ref'),
           optional($.razor_attribute_modifier),
         ),
       ),
 
-    razor_attribute_modifier: (_) =>
-      choice(":culture", ":preventDefault", ":stopPropagation"),
+    razor_attribute_modifier: (_) => choice(':culture', ':preventDefault', ':stopPropagation'),
 
-    html_comment: ($) => seq("<!--", optional($._razor_comment_text), "-->"),
-    _html_comment_text: (_) => repeat1(/.|\n|\r/),
+    html_comment: (_) => token(seq('<!--', /[^-]*-+([^->][^-]*-+)*/, '>')),
+
+    html_doctype: (_) => token(seq('<!', /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/, /[^>]*/, '>')),
 
     // HTML Base Definitions
     _tag_name: (_) => /[a-zA-Z0-9-:]+/,
-    _end_tag: ($) => seq("</", $._tag_name, ">"),
-    _html_attribute_name: (_) => /[a-zA-Z0-9-:]+/,
-    _boolean_html_attribute: (_) => /[a-zA-Z0-9-:]+/,
+    _end_tag: ($) => seq('</', $._tag_name, '>'),
+    _html_attribute_name: (_) => /[a-zA-Z0-9_:.\-]+/,
     _html_attribute_value: ($) =>
-      seq(
-        '"',
-        repeat(
-          choice(
-            $.razor_explicit_expression,
-            $.razor_implicit_expression,
-            /[^"@]+/,
-          ),
+      choice(
+        seq(
+          '"',
+          repeat(choice($.razor_explicit_expression, $.razor_implicit_expression, $._attr_text_dq)),
+          '"',
         ),
-        '"',
+        seq(
+          "'",
+          repeat(choice($.razor_explicit_expression, $.razor_implicit_expression, $._attr_text_sq)),
+          "'",
+        ),
+        alias($._attr_text_unquoted, $.attribute_value_unquoted),
+        $.razor_explicit_expression,
+        $.razor_implicit_expression,
       ),
-    _html_text: (_) => /[^<>&@.(\s]([^<>&@]*[^<>&@\s])?/,
+    // An `@` directly between two letters or digits is part of the text (an email address),
+    // not a transition, so it is allowed inside these text runs.
+    _attr_text_dq: (_) => /([^"@]|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
+    _attr_text_sq: (_) => /([^'@]|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
+    _attr_text_unquoted: (_) => /[^\s"'=<>`@]+/,
+    // Text runs stop at the end of a line so that a `//` comment on the next line is not
+    // absorbed into the text before it.
+    _html_text: (_) =>
+      /([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
-    razor_attribute_value: ($) =>
-      seq('"', optional($.modifier), $.expression, '"'),
+    razor_attribute_value: ($) => seq('"', optional($.modifier), $.expression, '"'),
 
     _html_attribute: ($) =>
-      seq($._html_attribute_name, "=", $._html_attribute_value),
+      seq($._html_attribute_name, optional(seq('=', $._html_attribute_value))),
 
     razor_html_attribute: ($) =>
-      seq($.razor_attribute_name, optional(seq("=", $.razor_attribute_value))),
+      seq($.razor_attribute_name, optional(seq('=', $.razor_attribute_value))),
 
     element: ($) =>
       seq(
-        "<",
+        '<',
         $._tag_name,
         optional(
           repeat(
@@ -502,18 +497,16 @@ export default grammar(CSHARP, {
               seq(
                 choice(
                   $._html_attribute,
-                  $._boolean_html_attribute,
                   $.razor_html_attribute,
+                  $.razor_explicit_expression,
+                  $.razor_implicit_expression,
                 ),
-                optional(" "),
+                optional(' '),
               ),
             ),
           ),
         ),
-        choice(
-          "/>",
-          seq(">", repeat(choice($._node, $._html_text)), $._end_tag),
-        ),
+        choice('/>', seq('>', repeat(choice($._node, $._html_text)), $._end_tag)),
       ),
   },
 });

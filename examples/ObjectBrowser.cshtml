@@ -1,0 +1,107 @@
+@page "{sourceServerId:long}"
+@model ObjectBrowserModel
+@{
+    ViewData["Title"] = "Browse objects";
+}
+
+<p><a asp-page="/Registry">&larr; Registry</a></p>
+
+<h1>Browse objects@(Model.Source is not null ? $" — {Model.Source.Name}" : "")</h1>
+
+@if (!Model.IsConfigured)
+{
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    @if (Model.ErrorMessage is not null)
+    {
+        <p role="alert">@Model.ErrorMessage</p>
+    }
+
+    @if (Model.Source is not null)
+    {
+        <p class="notice" role="status">Registering an object exports every column, but leaves row identity and change detection unconfigured. Configure those safeguards before enabling its source.</p>
+
+        <form method="get" class="filter-form" aria-label="Filter live objects">
+            <input type="hidden" asp-for="SourceServerId" />
+            <label asp-for="SchemaFilter">Schema</label>
+            <input asp-for="SchemaFilter" autocomplete="off" />
+            <label asp-for="NameFilter">Object name</label>
+            <input asp-for="NameFilter" autocomplete="off" />
+            <button type="submit">Search objects</button>
+        </form>
+
+        <section aria-labelledby="unregistered-title">
+            <h2 id="unregistered-title">Not yet registered</h2>
+            @if (Model.UnregisteredObjects.Count == 0)
+            {
+                <p class="empty-state">No unregistered objects match this search. Refine the schema or name filter, or confirm the metadata login can read this source.</p>
+            }
+            <div class="table-scroll" tabindex="0">
+            <table>
+                <caption>Live objects available to register</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object</th><th scope="col">Type</th><th scope="col">Action</th></tr></thead>
+                <tbody>
+                    @foreach (LiveSourceObject live in Model.UnregisteredObjects)
+                    {
+                        <tr>
+                            <td>@live.Schema</td>
+                            <td>@live.Name</td>
+                            <td>@live.ObjectType</td>
+                            <td>
+                                <form method="post" asp-page-handler="Register">
+                                    <input type="hidden" name="objectSchema" value="@live.Schema" />
+                                    <input type="hidden" name="objectName" value="@live.Name" />
+                                    <input type="hidden" name="objectType" value="@live.ObjectType" />
+                                    <button type="submit">Register with safeguards pending</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        </section>
+
+        <section aria-labelledby="registered-title">
+            <h2 id="registered-title">Already registered</h2>
+            @if (Model.RegisteredObjects.Count == 0)
+            {
+                <p class="empty-state">No registered objects match this search.</p>
+            }
+            <div class="table-scroll" tabindex="0">
+            <table>
+                <caption>Objects already registered for this source</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object</th><th scope="col">Type</th><th scope="col">Columns</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+                <tbody>
+                    @foreach (RegistryObject registered in Model.RegisteredObjects)
+                    {
+                        <tr>
+                            <td>@registered.Schema</td>
+                            <td>@registered.Name</td>
+                            <td>@registered.Type</td>
+                            <td>@(registered.AllColumns ? "All columns" : "Selected columns")</td>
+                            <td>@(registered.Enabled ? "Enabled" : "Disabled")</td>
+                            <td>
+                                <form method="post" asp-page-handler="SetEnabled">
+                                    <input type="hidden" name="objectId" value="@registered.Id" />
+                                    @* See the equivalent hidden-input comment on Registry.cshtml's source-enable
+                                       form -- a bare bool-typed expression here renders as a conditional
+                                       attribute rather than the "true"/"false" text the bool model binder on
+                                       OnPostSetEnabledAsync's "enabled" parameter expects. *@
+                                    <input type="hidden" name="enabled" value="@(!registered.Enabled ? "true" : "false")" />
+                                    <button type="submit">@(registered.Enabled ? "Disable" : "Enable")</button>
+                                </form>
+                                <a asp-page="/ObjectColumns" asp-route-objectId="@registered.Id">Manage columns</a>
+                                <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Remove @(registered.Schema).@(registered.Name) from the registry?');">
+                                    <input type="hidden" name="objectId" value="@registered.Id" />
+                                    <button type="submit">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        </section>
+    }
+}

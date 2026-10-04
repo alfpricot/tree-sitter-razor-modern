@@ -91,6 +91,11 @@ jobs:
       - name: Cache cargo registry and build artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      - name: Install devDependencies
+        # grammar.js imports tree-sitter-c-sharp from node_modules;
+        # --ignore-scripts skips this package's node-gyp-build install script.
+        run: npm install --ignore-scripts
+
       - name: Regenerate the parser from grammar.js
         run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter generate
 

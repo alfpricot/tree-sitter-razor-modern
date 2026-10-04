@@ -76,9 +76,7 @@ Commented Code Block
 ---
 
 (compilation_unit
-  (razor_comment
-    (comment)
-    (comment))
+  (razor_comment)
   (razor_block
     (comment)))
 

@@ -1,0 +1,168 @@
+@page
+@model RegistryModel
+@{
+    ViewData["Title"] = "Registry";
+}
+
+<h1>Registry</h1>
+
+@if (!Model.IsConfigured)
+{
+    <partial name="_RegistryConnectionRequired" />
+}
+else
+{
+    <section aria-labelledby="manual-sync-title">
+        <h2 id="manual-sync-title">Run a sync</h2>
+        <form method="post" asp-page-handler="Queue">
+            <label asp-for="SourceServerId">Source</label>
+            <select asp-for="SourceServerId">
+                <option value="">All enabled sources</option>
+                @foreach (RegistrySource source in Model.Sources)
+                {
+                    <option value="@source.Id">@source.Name</option>
+                }
+            </select>
+            <label asp-for="ObjectFilter">Objects</label>
+            <input asp-for="ObjectFilter" autocomplete="off" />
+            <p>Optional comma-separated object names. Leave blank to run all enabled objects for the selected source.</p>
+            <button type="submit">Queue sync</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="sources-title">
+        <h2 id="sources-title">Sources</h2>
+
+        @if (Model.SourceErrorMessage is not null)
+        {
+            <p role="alert">@Model.SourceErrorMessage</p>
+        }
+
+        @if (Model.Sources.Count == 0)
+        {
+            <p class="empty-state">No sources are registered yet. Register a disabled source below, verify its configuration, then enable it.</p>
+        }
+        <div class="table-scroll" tabindex="0">
+        <table>
+            <caption>Registered source servers</caption><thead><tr><th scope="col">Name</th><th scope="col">Database</th><th scope="col">Target schema</th><th scope="col">Status</th><th scope="col">Objects</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+                @foreach (RegistrySource source in Model.Sources)
+                {
+                    <tr>
+                        <td>@source.Name</td>
+                        <td>@source.Database</td>
+                        <td>@source.TargetSchema</td>
+                        <td>@(source.Enabled ? "Enabled" : "Disabled")</td>
+                        <td><a asp-page="/ObjectBrowser" asp-route-sourceServerId="@source.Id">Browse objects</a></td>
+                        <td>
+                            <form method="post" asp-page-handler="SetSourceEnabled">
+                                <input type="hidden" name="sourceServerId" value="@source.Id" />
+                                @* A bare bool-typed expression as an attribute's whole value triggers Razor's
+                                   conditional-attribute rendering (value="value" for true, the attribute omitted
+                                   for false) instead of the literal "True"/"False" text -- neither form is what
+                                   the bool model binder on OnPostSetSourceEnabledAsync's "enabled" parameter
+                                   expects. Force it to a real string instead. *@
+                                <input type="hidden" name="enabled" value="@(!source.Enabled ? "true" : "false")" />
+                                <button type="submit">@(source.Enabled ? "Disable" : "Enable")</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+
+        <h3>Register a source</h3>
+        <p>Registers disabled -- verify the credential, network path, and identity columns before enabling it above.</p>
+        <form method="post" asp-page-handler="CreateSource">
+            <label asp-for="NewSourceName">Name</label>
+            <input asp-for="NewSourceName" autocomplete="off" />
+
+            <label asp-for="NewSourceHost">SQL Server host</label>
+            <input asp-for="NewSourceHost" autocomplete="off" />
+
+            <label asp-for="NewSourceDatabase">Database</label>
+            <input asp-for="NewSourceDatabase" autocomplete="off" />
+
+            <label asp-for="NewSourceTargetSchema">Target schema</label>
+            <input asp-for="NewSourceTargetSchema" autocomplete="off" placeholder="e.g. SALES" />
+
+            <label asp-for="NewSourceAuthMode">Authentication mode</label>
+            <select asp-for="NewSourceAuthMode">
+                <option value="sql">SQL authentication</option>
+                <option value="integrated">Integrated (Windows) authentication</option>
+            </select>
+
+            <label asp-for="NewSourceUserId">SQL login</label>
+            <input asp-for="NewSourceUserId" autocomplete="off" />
+            <p>Required only for SQL authentication.</p>
+
+            <label asp-for="NewSourceSecretRef">Credential reference</label>
+            <input asp-for="NewSourceSecretRef" autocomplete="off" placeholder="env:NAME or a secret-store reference" />
+            <p>A reference to a credential, never the credential itself. Required only for SQL authentication.</p>
+
+            <button type="submit">Register source</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="objects-title">
+        <h2 id="objects-title">Objects and columns</h2>
+        <p>Column selection and source metadata use the metadata-only SQL login; this screen never reads source data rows.</p>
+        <p>The change-tracking floor is a per-object override applied on top of the adaptive floor the worker already computes. Leave it blank and save to clear it and fall back to the adaptive floor alone.</p>
+
+        <form method="get" class="filter-form" aria-label="Filter registered objects">
+            <label asp-for="ObjectSourceServerId">Source</label>
+            <select asp-for="ObjectSourceServerId">
+                <option value="">All sources</option>
+                @foreach (RegistrySource source in Model.Sources)
+                {
+                    <option value="@source.Id">@source.Name</option>
+                }
+            </select>
+            <label asp-for="ObjectNameSearch">Object name</label>
+            <input asp-for="ObjectNameSearch" autocomplete="off" />
+            <button type="submit">Filter objects</button>
+        </form>
+
+        @if (Model.ErrorMessage is not null)
+        {
+            <p role="alert">@Model.ErrorMessage</p>
+        }
+
+        @if (Model.Objects.Count == 0)
+        {
+            <p class="empty-state">No registered objects match this filter. Choose a source above or browse a source to register one.</p>
+        }
+        <div class="table-scroll" tabindex="0">
+        <table>
+            <caption>Registered export objects</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object</th><th scope="col">Type</th><th scope="col">Columns</th><th scope="col">Status</th><th scope="col">Last update</th><th scope="col">Change-tracking floor</th></tr></thead>
+            <tbody>
+                @foreach (RegistryObject item in Model.Objects)
+                {
+                    <tr>
+                        <td>@item.Schema</td>
+                        <td>@item.Name</td>
+                        <td>@item.Type</td>
+                        <td><a asp-page="/ObjectColumns" asp-route-objectId="@item.Id">@(item.AllColumns ? "All columns" : "Selected columns")</a></td>
+                        <td>@(item.Enabled ? "Enabled" : "Disabled")</td>
+                        <td>@(item.LastUpdate?.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture) ?? "Never")</td>
+                        <td>
+                            @{
+                                bool rowFailed = Model.FailedObjectId == item.Id;
+                                string floorValue = rowFailed
+                                    ? Model.MinChangeTrackingTimestampInput
+                                    : item.MinChangeTrackingTimestamp?.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            <form method="post" asp-page-handler="SetMinChangeTrackingTimestamp">
+                                <input type="hidden" name="ObjectId" value="@item.Id" />
+                                <input type="datetime-local" id="floor-@item.Id" name="MinChangeTrackingTimestampInput" aria-label="Change-tracking floor for @item.Schema.@item.Name" value="@floorValue" />
+                                <button type="submit">Save</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </section>
+}

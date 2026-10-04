@@ -41,7 +41,7 @@ Explicit Razor Expression with code
               (argument
                 (integer_literal))))))))
   (element
-    (razor_implicit_expression
+    (razor_explicit_expression
       (parenthesized_expression
         (member_access_expression
           (identifier)
