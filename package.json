@@ -10,8 +10,8 @@
     "start": "npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter playground",
     "test": "node --test bindings/node/*_test.js",
     "lint": "eslint grammar.js \"test/*.mjs\" \"bindings/node/*.js\"",
-    "format": "prettier --write grammar.js \"test/*.mjs\" \"bindings/node/*.js\"",
-    "format:check": "prettier --check grammar.js \"test/*.mjs\" \"bindings/node/*.js\""
+    "format": "prettier --write grammar.js \"test/*.mjs\" \"tools/*.mjs\" \"bindings/node/*.js\"",
+    "format:check": "prettier --check grammar.js \"test/*.mjs\" \"tools/*.mjs\" \"bindings/node/*.js\""
   },
   "author": "M. Reifschneider",
   "contributors": [
@@ -28,7 +28,8 @@
     "node-gyp": "13.1.0",
     "prettier": "3.9.9",
     "tree-sitter": "0.25.1",
-    "tree-sitter-c-sharp": "0.23.5"
+    "tree-sitter-c-sharp": "0.23.5",
+    "tree-sitter-cli": "0.27.0"
   },
   "peerDependencies": {
     "tree-sitter": "^0.25.0"
