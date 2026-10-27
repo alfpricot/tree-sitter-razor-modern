@@ -1,28 +1,45 @@
 # tree-sitter-razor-modern
 
-A [tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammar for ASP.NET Core Razor markup (`.cshtml` and `.razor`).
+[![Verify](https://github.com/alfpricot/tree-sitter-razor-modern/actions/workflows/verify.yml/badge.svg?branch=dev)](https://github.com/alfpricot/tree-sitter-razor-modern/actions/workflows/verify.yml)
+[![crates.io](https://img.shields.io/crates/v/tree-sitter-razor-modern.svg)](https://crates.io/crates/tree-sitter-razor-modern)
 
-This project is a maintained fork of
-[`tris203/tree-sitter-razor`](https://github.com/tris203/tree-sitter-razor), licensed under MIT. Embedded C# is
-parsed by the C# grammar's own rules, so node kinds inside code blocks match `tree-sitter-c-sharp`.
+A [tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammar for ASP.NET Core Razor markup (`.cshtml` and `.razor`), with Rust and Node bindings. It is a maintained fork of [`tris203/tree-sitter-razor`](https://github.com/tris203/tree-sitter-razor), licensed under MIT. Embedded C# is parsed by the C# grammar's own rules, so node kinds inside code blocks match `tree-sitter-c-sharp`.
 
-## Using it
+## Installation
+
+Rust:
 
 ```sh
 cargo add tree-sitter tree-sitter-razor-modern
 ```
 
-```rust
-let mut parser = tree_sitter::Parser::new();
-let language = tree_sitter_razor::LANGUAGE;
-parser
-    .set_language(&language.into())
-    .expect("Error loading ASP.NET Core Razor markup (`.cshtml` and `.razor`) parser");
-```
+Node:
 
 ```sh
 npm install tree-sitter-razor-modern
 ```
+
+A GitHub Packages copy of the npm package is also published as `@alfpricot/tree-sitter-razor-modern`. Prebuilt native addons ship for Linux and Windows, so an install on those platforms needs no C toolchain. Other platforms compile the committed parser from source.
+
+### Requirements
+
+- Node.js 24 for building and testing from a checkout (`.nvmrc`).
+- Rust 1.85 or newer (`rust-version` in `Cargo.toml`).
+- A C compiler. The Rust build script and `node-gyp` both compile `src/parser.c`.
+
+## Usage
+
+Rust:
+
+```rust
+let mut parser = tree_sitter::Parser::new();
+parser
+    .set_language(&tree_sitter_razor_modern::LANGUAGE.into())
+    .expect("Error loading the Razor grammar");
+let tree = parser.parse("<p>@DateTime.Now</p>", None).unwrap();
+```
+
+Node:
 
 ```js
 import Parser from 'tree-sitter';
@@ -30,29 +47,14 @@ import Language from 'tree-sitter-razor-modern';
 
 const parser = new Parser();
 parser.setLanguage(Language);
+const tree = parser.parse('<p>@DateTime.Now</p>');
 ```
 
-A GitHub Packages copy is also published as `@meloncholera/tree-sitter-razor-modern`.
+The Rust crate also exports `NODE_TYPES`, `HIGHLIGHTS_QUERY`, and `INJECTIONS_QUERY`. [docs/SYNTAX.md](docs/SYNTAX.md) lists the Razor constructs the grammar covers, and [ARCHITECTURE.md](ARCHITECTURE.md) describes how the repository is laid out.
 
-## Building
+## How to contribute
 
-```sh
-npm install --ignore-scripts
-npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter generate
-cargo build
-```
-
-The generated parser (`src/parser.c`, `src/grammar.json`, and `src/node-types.json`) is committed.
-Regenerate and commit the diff after every `grammar.js` change.
-
-## Testing
-
-```sh
-CC=gcc CXX=g++ npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter test
-cargo test
-```
-
-On Windows without MSVC, set `CC` and `CXX` to an installed GCC-compatible toolchain.
+Branch from `dev` and open pull requests against it. After any change to `grammar.js`, regenerate the parser and commit the result, then run the corpus tests and the checks CI runs. [CONTRIBUTING.md](CONTRIBUTING.md) has the exact commands.
 
 ## License
 
