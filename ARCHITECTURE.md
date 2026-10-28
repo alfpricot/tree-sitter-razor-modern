@@ -50,7 +50,7 @@ A parse runs from a consumer's call into the binding (Rust or Node), through the
 ## Build, test, release, and deploy
 
 - **Pull requests and pushes to `dev` and `main`**: `verify.yml` (workflow `Verify`) regenerates the parser and fails on drift, checks the node-kind snapshot, lints and format-checks the JavaScript, runs the corpus, highlight, and example checks, builds and tests the Rust and Node bindings, validates the pull request title, scans for secrets, and lints the workflow files.
-- **Release**: `release-plz.yml` opens a `chore(release)` pull request against `main` with the version bump and changelog. When it merges, `release-tag.yml` pushes the `v*` tag and dispatches `release.yml`, which publishes the crate and the npm packages and creates the GitHub Release with a WASM build attached. `sync-dev-from-main.yml` then opens a pull request merging `main` back into `dev`.
+- **Release**: when a promotion lands on `main`, `gala-release.yml` runs gala (configured in `.gala.toml`), which bumps the `Cargo.toml` version from Conventional Commits, updates `CHANGELOG.md`, commits and tags the release, pushes both over a deploy key, and fast-forwards `dev` to the release commit. The workflow then dispatches `release.yml` on the new tag; that workflow publishes the crate and the npm packages and creates the GitHub Release with a WASM build attached. `package.json` and `tree-sitter.json` keep their committed versions and are set from the tag at publish time only.
 - **Maintenance**: `cache-cleanup.yml` clears stale caches on demand, and Dependabot updates dependencies against `dev`.
 - This repository is a library, so nothing is deployed.
 

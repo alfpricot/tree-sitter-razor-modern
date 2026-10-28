@@ -1,0 +1,15 @@
+# gala release configuration. Cargo.toml's package version is the source of
+# truth: gala bumps it from Conventional Commits and tags the release commit.
+# package.json and tree-sitter.json are set from the tag at publish time by
+# release.yml and are never committed.
+kind = "app"
+manager = "cargo"
+# release.yml publishes to crates.io and npm itself, so gala stops after tagging.
+publish = false
+# release.yml creates the GitHub Release (with the WASM build attached).
+githubRelease = false
+releaseBranches = ["main"]
+syncBranch = "dev"
+tagPrefix = "v"
+changelog = "CHANGELOG.md"
+remote = "origin"
