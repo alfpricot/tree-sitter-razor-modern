@@ -4,14 +4,14 @@ A tree-sitter grammar for ASP.NET Core Razor markup, written in JavaScript (`gra
 
 ## Before you start
 
-1. Branch from **`dev`**. `main` is the production branch: the release-plz workflow opens a release pull request against it, and a workflow merges `main` back into `dev` afterward.
+1. Branch from **`dev`**. `main` is the production branch: a promotion pull request from `dev` lands on it, and the gala release workflow then cuts the release and fast-forwards `dev` to the release commit.
 2. Read [ARCHITECTURE.md](ARCHITECTURE.md) for how the repository is laid out and [docs/SYNTAX.md](docs/SYNTAX.md) for the Razor constructs the grammar covers.
 
 ## Local setup
 
 ```sh
 npm install --ignore-scripts
-npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter generate
+npx --yes --package=tree-sitter-cli@0.27.1 -- tree-sitter generate
 cargo build
 ```
 
@@ -20,12 +20,12 @@ cargo build
 ## Validation before a pull request
 
 ```sh
-npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter generate
+npx --yes --package=tree-sitter-cli@0.27.1 -- tree-sitter generate
 node test/generate-node-kinds.mjs
 npm run lint
 npm run format:check
 node --test tools/*.test.mjs
-npx --yes --package=tree-sitter-cli@0.27.0 -- tree-sitter test
+npx --yes --package=tree-sitter-cli@0.27.1 -- tree-sitter test
 TREE_SITTER=tree-sitter bash test/check-examples.sh
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
