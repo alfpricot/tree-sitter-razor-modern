@@ -1,7 +1,7 @@
-# gala release configuration. Cargo.toml's package version is the source of
-# truth: gala bumps it from Conventional Commits and tags the release commit.
-# package.json and tree-sitter.json are set from the tag at publish time by
-# release.yml and are never committed.
+# gala release configuration. gala bumps the version from Conventional
+# Commits in Cargo.toml, package.json, and tree-sitter.json together,
+# refreshes the lockfiles, regenerates the parser, and tags the release
+# commit, which is exactly what release.yml publishes.
 kind = "app"
 manager = "cargo"
 # release.yml publishes to crates.io and npm itself, so gala stops after tagging.
@@ -13,3 +13,17 @@ syncBranch = "dev"
 tagPrefix = "v"
 changelog = "CHANGELOG.md"
 remote = "origin"
+
+# The generated parser embeds tree-sitter.json's version, so the release
+# commit regenerates it with the CLI version package.json pins; Verify's
+# generated-parser check then passes on the release commit too.
+postBump = ["npx --no-install tree-sitter generate"]
+postBumpPaths = ["src/parser.c", "src/grammar.json", "src/node-types.json"]
+
+[[versionFile]]
+path = "package.json"
+key = "version"
+
+[[versionFile]]
+path = "tree-sitter.json"
+key = "metadata.version"
