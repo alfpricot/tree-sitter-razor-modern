@@ -479,7 +479,19 @@ export default grammar(CSHARP, {
     _html_text: (_) =>
       /([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
-    razor_attribute_value: ($) => seq('"', optional($.modifier), $.expression, '"'),
+    // A directive attribute value is C# by default, and may also open with an explicit `@`
+    // transition (`@onclick="@Handler"`, `@onclick="@(e => Save(e))"`), which Razor accepts and
+    // treats the same way.
+    razor_attribute_value: ($) =>
+      seq(
+        '"',
+        choice(
+          seq(optional($.modifier), $.expression),
+          $.razor_explicit_expression,
+          $.razor_implicit_expression,
+        ),
+        '"',
+      ),
 
     _html_attribute: ($) =>
       seq($._html_attribute_name, optional(seq('=', $._html_attribute_value))),
