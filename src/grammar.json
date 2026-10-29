@@ -14545,17 +14545,35 @@
           "type": "CHOICE",
           "members": [
             {
-              "type": "SYMBOL",
-              "name": "modifier"
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "modifier"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "expression"
+                }
+              ]
             },
             {
-              "type": "BLANK"
+              "type": "SYMBOL",
+              "name": "razor_explicit_expression"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "razor_implicit_expression"
             }
           ]
-        },
-        {
-          "type": "SYMBOL",
-          "name": "expression"
         },
         {
           "type": "STRING",

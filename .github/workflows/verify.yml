@@ -19,11 +19,8 @@
 #                      every check up into a single `Verify` status for
 #                      branch rulesets to require.
 #
-#                      workflow_dispatch exists because release-plz.yml and
-#                      sync-dev-from-main.yml push their PR branches with
-#                      GITHUB_TOKEN, which never triggers a pull_request
-#                      run; they dispatch this workflow on that branch so
-#                      the head commit still gets a `Verify` status.
+#                      workflow_dispatch lets the checks be run by hand on any
+#                      branch.
 # =============================================================================
 
 name: Verify
@@ -43,7 +40,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TREE_SITTER_CLI_VERSION: '0.27.0'
+  TREE_SITTER_CLI_VERSION: '0.27.1'
 
 jobs:
   pr-title:
@@ -119,7 +116,7 @@ jobs:
 
       - name: Upload Gitleaks report on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gitleaks-report
           path: gitleaks-report.json
@@ -137,7 +134,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
 
@@ -147,17 +144,15 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache cargo registry and build artifacts
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Install devDependencies
         # grammar.js imports tree-sitter-c-sharp from node_modules, so this
         # must run before `tree-sitter generate`. A bare `npm install` would
         # also run this package's own "install": "node-gyp-build" lifecycle
         # script and fail without MSVC; --ignore-scripts installs the
-        # declared devDependencies (eslint, @eslint/js, prettier,
-        # tree-sitter-c-sharp) without running any lifecycle script. ESLint's
-        # flat config also resolves its own imports from this checkout's
-        # node_modules.
+        # declared devDependencies (oxlint, oxfmt, tree-sitter-c-sharp)
+        # without running any lifecycle script.
         run: |
           npm install --ignore-scripts
           # --ignore-scripts skips the CLI's binary download; fetch it so
@@ -184,6 +179,11 @@ jobs:
 
       - name: Test the release policy scripts
         run: node --test tools/*.test.mjs
+
+      - name: Check Cargo.toml, package.json, and tree-sitter.json agree
+        # gala refuses to plan a release when they disagree; failing here
+        # catches the drift on the pull request instead of on main.
+        run: node tools/release-policy.mjs versions
 
       - name: Verify publishable package contents
         run: |
@@ -279,7 +279,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
 

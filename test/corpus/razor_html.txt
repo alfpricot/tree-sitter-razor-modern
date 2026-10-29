@@ -141,3 +141,44 @@ Mixed text and Razor expression in HTML attribute
           (string_literal
             (string_literal_content))
           (string_literal))))))
+
+======
+Directive attribute values with an explicit transition
+======
+<input @bind="@name" @bind:culture="@Culture" />
+<button @onclick="@Save">Save</button>
+<button @onclick="@(e => Select(item))">Pick</button>
+---
+
+(compilation_unit
+  (element
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (razor_implicit_expression
+          (identifier))))
+    (razor_html_attribute
+      (razor_attribute_name
+        (razor_attribute_modifier))
+      (razor_attribute_value
+        (razor_implicit_expression
+          (identifier)))))
+  (element
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (razor_implicit_expression
+          (identifier)))))
+  (element
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (razor_explicit_expression
+          (parenthesized_expression
+            (lambda_expression
+              (implicit_parameter)
+              (invocation_expression
+                (identifier)
+                (argument_list
+                  (argument
+                    (identifier)))))))))))

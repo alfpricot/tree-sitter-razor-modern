@@ -1,4 +1,8 @@
-# Razor Expressions
+# Razor syntax coverage
+
+The Razor constructs the grammar parses, with a checked box for each one covered.
+
+## Razor Expressions
 
 - [x] Implicit Razor Expressions `@DateTime.Now`
 - [x] Await Expressions `<p>@await DoSomething("hello", "world")</p>`
@@ -8,13 +12,13 @@
 - [x] Explicit Transitions
 - [x] Explicit Line Transitions `@:`
 
-# Control Structure
+## Control Structure
 
-## Conditionals
+### Conditionals
 
 - [x] If, elseif, else, switch
 
-## Looping
+### Looping
 
 - [x] for, foreach, while, do while
 
@@ -22,13 +26,13 @@
 - [x] try, catch, finally
 - [x] lock `@lock (SomeLock) {}`
 
-# Comments
+## Comments
 
 - [x] Razor
 - [x] CSharp
 - [x] HTML
 
-# Directives
+## Directives
 
 - [x] Attribute `@attribute [Authorize]` / `@attribute[Route(Constants.CounterRoute)#]`
 - [x] code

@@ -5861,6 +5861,14 @@
         {
           "type": "modifier",
           "named": true
+        },
+        {
+          "type": "razor_explicit_expression",
+          "named": true
+        },
+        {
+          "type": "razor_implicit_expression",
+          "named": true
         }
       ]
     }
