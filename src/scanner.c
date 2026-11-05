@@ -1,3 +1,8 @@
+// Vendored from the external scanner of tree-sitter-c-sharp, with the IMPLICIT_* tokens and
+// scan_implicit_continuation added for Razor. The TokenType order must start with the upstream
+// order because grammar.js appends its own externals to the imported list; `node
+// tools/scanner-drift.mjs` checks that and this version marker, and runs in the verify workflow.
+// Upstream: tree-sitter-c-sharp 0.23.5
 #include "tree_sitter/alloc.h"
 #include "tree_sitter/array.h"
 #include "tree_sitter/parser.h"
