@@ -202,7 +202,7 @@ jobs:
       - name: Report example parse performance
         run: |
           set -euo pipefail
-          stats=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse --quiet --time --stat examples/*.cshtml 2>&1 | grep '^Total parses:')
+          stats=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse --quiet --time --stat examples/*.cshtml examples/*.razor 2>&1 | grep '^Total parses:')
           parser_bytes=$(wc -c < src/parser.c)
           {
             echo "### Example parse performance"

@@ -1,0 +1,71 @@
+@using System.ComponentModel.DataAnnotations
+@inject IContactService Contacts
+@inject ILogger<ContactForm> Logger
+
+<EditForm Model="model" OnValidSubmit="SaveAsync" FormName="contact">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="field">
+        <label for="name">Name</label>
+        <InputText id="name" @bind-Value="model.Name" @bind-Value:after="OnNameChanged" class="form-control" />
+        <ValidationMessage For="@(() => model.Name)" />
+    </div>
+
+    <div class="field">
+        <label for="email">Email</label>
+        <InputText id="email" @bind-Value="model.Email" />
+    </div>
+
+    <div class="field">
+        <label for="topic">Topic</label>
+        <InputSelect id="topic" @bind-Value="model.Topic">
+            @foreach (var topic in topics)
+            {
+                <option value="@topic">@topic</option>
+            }
+        </InputSelect>
+    </div>
+
+    <input type="checkbox" @bind="model.Subscribe" @bind:after="OnSubscribeChanged" />
+
+    <button type="submit" disabled="@saving">Send</button>
+</EditForm>
+
+@if (saved)
+{
+    <p class="success">Thanks, @model.Name?.Trim()!</p>
+}
+
+@code {
+    private ContactModel model = new();
+    private string[] topics = { "General", "Support", "Feedback" };
+    private bool saving;
+    private bool saved;
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        await Contacts.SendAsync(model);
+        Logger.LogInformation("Message sent from {Name}", model.Name);
+        saving = false;
+        saved = true;
+    }
+
+    private void OnNameChanged() => saved = false;
+
+    private void OnSubscribeChanged() => saved = false;
+
+    public class ContactModel
+    {
+        [Required]
+        public string Name { get; set; } = "";
+
+        [EmailAddress]
+        public string? Email { get; set; }
+
+        public string Topic { get; set; } = "General";
+
+        public bool Subscribe { get; set; }
+    }
+}
