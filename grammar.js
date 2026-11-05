@@ -45,6 +45,15 @@ function elementAttributes($) {
   );
 }
 
+/**
+ * The rest of the file after its first node or text run: nodes and text, optionally ending in a
+ * `@using` or `@inject` directive (which then carries the remainder itself).
+ * @param {GrammarSymbols<string>} $
+ */
+function bodyRest($) {
+  return seq(repeat(choice($._node, $._html_text)), optional($._late_directive));
+}
+
 export default grammar(CSHARP, {
   name: 'razor',
 
@@ -53,7 +62,7 @@ export default grammar(CSHARP, {
       $._implicit_dot,
       $._implicit_paren,
       $._implicit_bracket,
-      $._implicit_lt,
+      $._implicit_question,
       $._raw_script_text,
       $._raw_style_text,
     ]),
@@ -118,7 +127,18 @@ export default grammar(CSHARP, {
         ),
         // A leading text run must start with a letter or digit, so it cannot compete with the
         // string that `@page` optionally takes or with the end of a directive's name.
-        optional(seq(choice($._node, $._html_text_start), repeat(choice($._node, $._html_text)))),
+        optional(seq(choice($._node, $._html_text_start), bodyRest($))),
+      ),
+
+    _body_rest: ($) => seq(repeat(choice($._node, $._html_text)), optional($._late_directive)),
+
+    // `@using` and `@inject` may also appear after the first node. Text directly after one of
+    // them has to start with a letter or digit, for the same reason as the first text run: a
+    // text run starting with `.` would otherwise take the rest of a dotted name.
+    _late_directive: ($) =>
+      seq(
+        choice($.razor_using_directive, $.razor_inject_directive),
+        optional(choice($._late_directive, seq(choice($._node, $._html_text_start), bodyRest($)))),
       ),
 
     _identifier_token: (_) =>
@@ -278,8 +298,8 @@ export default grammar(CSHARP, {
       choice(
         $.identifier,
         'this',
-        alias($._implicit_generic_name, $.generic_name),
         alias($._implicit_member, $.member_access_expression),
+        alias($._implicit_conditional_access, $.conditional_access_expression),
         alias($._implicit_invocation, $.invocation_expression),
         alias($._implicit_index, $.element_access_expression),
       ),
@@ -289,26 +309,25 @@ export default grammar(CSHARP, {
         /(\p{XID_Start}|_|\\u[0-9A-Fa-f]{4}|\\U[0-9A-Fa-f]{8})(\p{XID_Continue}|\\u[0-9A-Fa-f]{4}|\\U[0-9A-Fa-f]{8})*/,
       ),
 
-    _implicit_type_argument_list: ($) => seq($._implicit_lt, commaSep1($.type), '>'),
-
-    _implicit_type_arguments: ($) => alias($._implicit_type_argument_list, $.type_argument_list),
-
-    _implicit_generic_name: ($) => seq($.identifier, $._implicit_type_arguments),
-
-    _implicit_member_generic_name: ($) =>
-      seq(alias($._implicit_identifier, $.identifier), $._implicit_type_arguments),
-
-    _implicit_member_name: ($) =>
-      choice(
-        alias($._implicit_identifier, $.identifier),
-        alias($._implicit_member_generic_name, $.generic_name),
-      ),
+    _implicit_member_name: ($) => alias($._implicit_identifier, $.identifier),
 
     _implicit_member: ($) =>
       seq(
         field('expression', $._implicit_chain),
         alias($._implicit_dot, '.'),
         field('name', $._implicit_member_name),
+      ),
+
+    // `@a?.b`: the `?` is scanned only when a `.` and a name follow it directly. Razor does not
+    // allow generic type arguments in an implicit expression, so `@a<b>(c)` leaves `<b>` as a tag.
+    _implicit_member_binding: ($) =>
+      seq(alias($._implicit_dot, '.'), field('name', $._implicit_member_name)),
+
+    _implicit_conditional_access: ($) =>
+      seq(
+        field('condition', $._implicit_chain),
+        alias($._implicit_question, '?'),
+        alias($._implicit_member_binding, $.member_binding_expression),
       ),
 
     _implicit_argument_list: ($) => seq(alias($._implicit_paren, '('), commaSep($.argument), ')'),
@@ -547,10 +566,11 @@ export default grammar(CSHARP, {
         $.razor_implicit_expression,
       ),
     // An `@` directly between two letters or digits is part of the text (an email address),
-    // not a transition, so it is allowed inside these text runs.
-    _attr_text_dq: (_) => /([^"@]|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
-    _attr_text_sq: (_) => /([^'@]|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
-    _attr_text_unquoted: (_) => /[^\s"'=<>`@]+/,
+    // and `@@` is an escaped `@`; neither is a transition, so both are allowed inside these text
+    // runs.
+    _attr_text_dq: (_) => /([^"@]|@@|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
+    _attr_text_sq: (_) => /([^'@]|@@|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
+    _attr_text_unquoted: (_) => /([^\s"'=<>`@]|@@)+/,
     // Text runs stop at the end of a line so that a `//` comment on the next line is not
     // absorbed into the text before it.
     _html_text: (_) =>

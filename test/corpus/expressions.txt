@@ -133,22 +133,20 @@ Implicit Expression with spaces - after space is text
         (identifier)))))
 
 =======
-Implicit Razor Expressions With Generics - Should render Generic as tag
+Implicit Razor Expressions Do Not Take Generics - The less-than sign starts a tag
 =======
 
 
-<p>@GenericMethod<int>()</p>
+<p>@item.Name<b>(admin)</b></p>
 ---
 
 (compilation_unit
   (element
     (razor_implicit_expression
-      (invocation_expression
-        (generic_name
-          (identifier)
-          (type_argument_list
-            (predefined_type)))
-        (argument_list)))))
+      (member_access_expression
+        (identifier)
+        (identifier)))
+    (element)))
 
 =======
 Explicit Razor Expressions With Generics
@@ -224,3 +222,24 @@ Implicit Expression With A Name that starts with a keyword
   (element
     (razor_implicit_expression
       (identifier))))
+
+=======
+Implicit Razor Expression With Null-conditional Access
+=======
+<p>@Model?.Name and @item?.Owner.Id and what?</p>
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (conditional_access_expression
+        condition: (identifier)
+        (member_binding_expression
+          name: (identifier))))
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (conditional_access_expression
+          condition: (identifier)
+          (member_binding_expression
+            name: (identifier)))
+        name: (identifier)))))

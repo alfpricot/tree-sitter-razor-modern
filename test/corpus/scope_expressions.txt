@@ -101,35 +101,20 @@ Implicit expression inline after a hash sign
             (string_literal
               (string_literal_content))))))))
 
-=======================================
-Implicit expression with a generic call
-=======================================
-<p>@GenericMethod<int>()</p>
-<p>@Html.Partial<Item>(model)</p>
+============================================================
+Implicit expression followed by a tag that looks like type arguments
+============================================================
+<p>@Html.Partial<b>(model)</b></p>
 
 ---
 
 (compilation_unit
   (element
     (razor_implicit_expression
-      (invocation_expression
-        (generic_name
-          (identifier)
-          (type_argument_list
-            (predefined_type)))
-        (argument_list))))
-  (element
-    (razor_implicit_expression
-      (invocation_expression
-        (member_access_expression
-          (identifier)
-          (generic_name
-            (identifier)
-            (type_argument_list
-              (identifier))))
-        (argument_list
-          (argument
-            (identifier)))))))
+      (member_access_expression
+        (identifier)
+        (identifier)))
+    (element)))
 
 ====================
 Await expression
