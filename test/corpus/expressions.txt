@@ -243,3 +243,23 @@ Implicit Razor Expression With Null-conditional Access
           (member_binding_expression
             name: (identifier)))
         name: (identifier)))))
+
+=======
+Implicit Razor Expression With Null-conditional Index
+=======
+<p>@items?[0] and @Model?.Name and what?[x]</p>
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (conditional_access_expression
+        condition: (identifier)
+        (element_binding_expression
+          (argument
+            (integer_literal)))))
+    (razor_implicit_expression
+      (conditional_access_expression
+        condition: (identifier)
+        (member_binding_expression
+          name: (identifier))))))

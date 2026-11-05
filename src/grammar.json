@@ -12712,15 +12712,13 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "TOKEN",
+          "type": "ALIAS",
           "content": {
-            "type": "PREC",
-            "value": 3,
-            "content": {
-              "type": "STRING",
-              "value": "where"
-            }
-          }
+            "type": "SYMBOL",
+            "name": "_typeparam_where"
+          },
+          "named": false,
+          "value": "where"
         },
         {
           "type": "SYMBOL",
@@ -13319,13 +13317,27 @@
           "value": "?"
         },
         {
-          "type": "ALIAS",
-          "content": {
-            "type": "SYMBOL",
-            "name": "_implicit_member_binding"
-          },
-          "named": true,
-          "value": "member_binding_expression"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_implicit_member_binding"
+              },
+              "named": true,
+              "value": "member_binding_expression"
+            },
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "SYMBOL",
+                "name": "_implicit_subscript"
+              },
+              "named": true,
+              "value": "element_binding_expression"
+            }
+          ]
         }
       ]
     },
@@ -14833,7 +14845,7 @@
     },
     "_html_text_start": {
       "type": "PATTERN",
-      "value": "([\\p{L}\\p{N}]@[\\p{L}\\p{N}]|[\\p{L}\\p{N}])(([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}]))?"
+      "value": "([\\p{L}\\p{N}]@[\\p{L}\\p{N}]|[\\p{L}\\p{N}&!'$%+~^|-])(([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}]))?"
     },
     "_html_slash_text": {
       "type": "TOKEN",
@@ -15704,6 +15716,10 @@
     {
       "type": "SYMBOL",
       "name": "_razor_event_name"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_typeparam_where"
     }
   ],
   "inline": [

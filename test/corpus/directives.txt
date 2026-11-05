@@ -529,3 +529,29 @@ more text
     (qualified_name
       qualifier: (identifier)
       name: (identifier))))
+
+===
+A line of text after a directive may start with a where that is not a constraint
+===
+@typeparam TItem
+where to find us: 12 Main St
+---
+
+(compilation_unit
+  (razor_typeparam_directive
+    name: (identifier)))
+
+===
+Text after a directive may start with some punctuation
+===
+@model Foo
+&copy; 2026 Acme
+-- note
+'quoted' intro
+<p>x</p>
+---
+
+(compilation_unit
+  (razor_model_directive
+    name: (identifier))
+  (element))
