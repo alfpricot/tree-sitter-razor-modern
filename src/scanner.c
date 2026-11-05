@@ -264,11 +264,18 @@ static bool scan_event_name(TSLexer *lexer) {
     return true;
 }
 
+static bool is_blank(int32_t c) { return c == ' ' || c == '\t'; }
+
+static bool is_name_start(int32_t c) { return c == '_' || c == '@' || iswalpha(c) || c >= 128; }
+
+static bool is_name_part(int32_t c) { return c == '_' || iswalnum(c) || c >= 128; }
+
 // Scans the `where` keyword of a type parameter constraint clause. It is the keyword only when a
-// name and a colon follow (`where TItem : class`), so a line of text that starts with the word
-// `where` is not mistaken for it. The token ends after the keyword.
+// name and a colon follow on the same line (`where TItem : class`), as a directive ends at its line
+// break, so a line of text that starts with the word `where` is not mistaken for it. The token
+// ends after the keyword.
 static bool scan_typeparam_where(TSLexer *lexer) {
-    while (iswspace(lexer->lookahead)) {
+    while (is_blank(lexer->lookahead)) {
         skip(lexer);
     }
     const char *word = "where";
@@ -279,19 +286,20 @@ static bool scan_typeparam_where(TSLexer *lexer) {
         advance(lexer);
     }
     lexer->mark_end(lexer);
-    if (!iswspace(lexer->lookahead)) {
+    if (!is_blank(lexer->lookahead)) {
         return false;
     }
-    while (iswspace(lexer->lookahead)) {
+    while (is_blank(lexer->lookahead)) {
         advance(lexer);
     }
-    if (lexer->lookahead != '_' && !iswalpha(lexer->lookahead)) {
+    if (!is_name_start(lexer->lookahead)) {
         return false;
     }
-    while (lexer->lookahead == '_' || iswalnum(lexer->lookahead)) {
+    advance(lexer);
+    while (is_name_part(lexer->lookahead)) {
         advance(lexer);
     }
-    while (iswspace(lexer->lookahead)) {
+    while (is_blank(lexer->lookahead)) {
         advance(lexer);
     }
     if (lexer->lookahead != ':') {

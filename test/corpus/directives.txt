@@ -555,3 +555,14 @@ Text after a directive may start with some punctuation
   (razor_model_directive
     name: (identifier))
   (element))
+
+===
+A prose line shaped like a clause on the line after the directive is text
+===
+@typeparam TItem
+where possible: use the API
+---
+
+(compilation_unit
+  (razor_typeparam_directive
+    name: (identifier)))

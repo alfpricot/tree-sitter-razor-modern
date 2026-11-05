@@ -127,13 +127,14 @@ export default grammar(CSHARP, {
             $.razor_taghelperprefix_directive,
           ),
         ),
-        // A leading text run must start with a letter or digit, so it cannot compete with the
-        // string that `@page` optionally takes or with the end of a directive's name.
+        // A leading text run has to start with a character that cannot continue a directive (see
+        // `_html_text_start`), so it cannot compete with the string that `@page` optionally takes
+        // or with the end of a directive's name.
         optional(seq(choice($._node, $._html_text_start), bodyRest($))),
       ),
 
     // `@using` and `@inject` may also appear after the first node. Text directly after one of
-    // them has to start with a letter or digit, for the same reason as the first text run: a
+    // them has to start like the first text run (see `_html_text_start`), for the same reason: a
     // text run starting with `.` would otherwise take the rest of a dotted name.
     _late_directive: ($) =>
       seq(
@@ -227,7 +228,8 @@ export default grammar(CSHARP, {
         repeat(alias($._typeparam_constraints_clause, $.type_parameter_constraints_clause)),
       ),
     // A `where` clause on a type parameter. The scanner emits its keyword only when a name and a
-    // colon follow, so a line of text that merely starts with the word `where` is still text.
+    // colon follow on the same line, so a line of text that merely starts with the word `where`
+    // is still text.
     _typeparam_constraints_clause: ($) =>
       seq(
         alias($._typeparam_where, 'where'),
