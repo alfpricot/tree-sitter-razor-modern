@@ -14407,13 +14407,17 @@
                   "value": "attributes"
                 },
                 {
+                  "type": "STRING",
+                  "value": "bind"
+                },
+                {
                   "type": "TOKEN",
                   "content": {
                     "type": "PREC",
                     "value": 10,
                     "content": {
                       "type": "PATTERN",
-                      "value": "bind(-[A-Za-z_][A-Za-z0-9_]*)?"
+                      "value": "bind-[A-Za-z_][A-Za-z0-9_]*"
                     }
                   }
                 },

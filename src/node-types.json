@@ -9555,6 +9555,10 @@
     "named": false
   },
   {
+    "type": "bind",
+    "named": false
+  },
+  {
     "type": "break",
     "named": false
   },

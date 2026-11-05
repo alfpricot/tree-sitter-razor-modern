@@ -232,3 +232,18 @@ Bound component parameters and bind modifiers
         (razor_attribute_modifier))
       (razor_attribute_value
         (identifier)))))
+
+===
+An identifier that starts with bind in an attribute position is an expression
+===
+<input @bindingAttrs />
+<div @binder class="x"></div>
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (identifier)))
+  (element
+    (razor_implicit_expression
+      (identifier))))

@@ -482,8 +482,10 @@ export default grammar(CSHARP, {
         seq(
           choice(
             'attributes',
-            // `@bind`, and `@bind-Value` for a bound component parameter.
-            token(prec(10, /bind(-[A-Za-z_][A-Za-z0-9_]*)?/)),
+            'bind',
+            // `@bind-Value` for a bound component parameter. The plain `bind` stays a keyword so a
+            // longer identifier such as `@bindings` is still read whole as an expression.
+            token(prec(10, /bind-[A-Za-z_][A-Za-z0-9_]*/)),
             'formname',
             token(prec(10, /on[a-z]+/i)),
             'key',
