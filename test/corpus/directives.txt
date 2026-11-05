@@ -500,3 +500,32 @@ x@example.com wrote:
   (razor_model_directive
     name: (identifier))
   (element))
+
+===
+Using and inject directives after the first node
+===
+<p>x</p>
+@inject IFoo foo
+@using System.Linq
+<p>y</p>
+Hello
+@using A.B
+more text
+---
+
+(compilation_unit
+  (element)
+  (razor_inject_directive
+    (variable_declaration
+      type: (identifier)
+      (variable_declarator
+        name: (identifier))))
+  (razor_using_directive
+    (qualified_name
+      qualifier: (identifier)
+      name: (identifier)))
+  (element)
+  (razor_using_directive
+    (qualified_name
+      qualifier: (identifier)
+      name: (identifier))))

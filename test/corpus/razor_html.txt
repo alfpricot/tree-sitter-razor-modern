@@ -247,3 +247,32 @@ An identifier that starts with bind in an attribute position is an expression
   (element
     (razor_implicit_expression
       (identifier))))
+
+===
+An escaped at sign inside attribute values
+===
+<a title="a@@b" href='@@x' data-id=@@y>t</a>
+---
+
+(compilation_unit
+  (element
+    (attribute_value_unquoted)))
+
+===
+A failed continuation inside script keeps its characters as raw text
+===
+<script>var u = "@a?@b"; var f = @a.@b; var g = @c?</script>
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))))

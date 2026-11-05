@@ -1321,15 +1321,15 @@
       "required": false,
       "types": [
         {
+          "type": "conditional_access_expression",
+          "named": true
+        },
+        {
           "type": "element_access_expression",
           "named": true
         },
         {
           "type": "expression",
-          "named": true
-        },
-        {
-          "type": "generic_name",
           "named": true
         },
         {
@@ -2150,8 +2150,32 @@
         "required": true,
         "types": [
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
             "type": "expression",
             "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "this",
+            "named": false
           }
         ]
       }
@@ -2776,15 +2800,15 @@
         "required": true,
         "types": [
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
             "type": "element_access_expression",
             "named": true
           },
           {
             "type": "expression",
-            "named": true
-          },
-          {
-            "type": "generic_name",
             "named": true
           },
           {
@@ -4307,6 +4331,10 @@
         "types": [
           {
             "type": "alias_qualified_name",
+            "named": true
+          },
+          {
+            "type": "conditional_access_expression",
             "named": true
           },
           {
@@ -7061,11 +7089,11 @@
           "named": true
         },
         {
-          "type": "element_access_expression",
+          "type": "conditional_access_expression",
           "named": true
         },
         {
-          "type": "generic_name",
+          "type": "element_access_expression",
           "named": true
         },
         {
