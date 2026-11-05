@@ -487,3 +487,16 @@ Welcome home
 
 (compilation_unit
   (razor_page_directive))
+
+===
+An address with a one-letter name starts the text after a directive
+===
+@model Foo
+x@example.com wrote:
+<p>x</p>
+---
+
+(compilation_unit
+  (razor_model_directive
+    name: (identifier))
+  (element))

@@ -14659,7 +14659,7 @@
     },
     "_html_text_start": {
       "type": "PATTERN",
-      "value": "[\\p{L}\\p{N}](([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}]))?"
+      "value": "([\\p{L}\\p{N}]@[\\p{L}\\p{N}]|[\\p{L}\\p{N}])(([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}]))?"
     },
     "_html_slash_text": {
       "type": "TOKEN",

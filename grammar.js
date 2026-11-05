@@ -535,7 +535,7 @@ export default grammar(CSHARP, {
     // directive this keeps the text from taking a double quote (the `@page` string) or the
     // punctuation that continues a directive's name (`.`, `<`, `?`) away from it.
     _html_text_start: (_) =>
-      /[\p{L}\p{N}](([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
+      /([\p{L}\p{N}]@[\p{L}\p{N}]|[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
     // Inside an element, `//` is ordinary text (a URL scheme separator, a note), not a C#
     // comment, so this outranks the `comment` extra and keeps it from swallowing the end tag.
