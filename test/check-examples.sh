@@ -3,14 +3,15 @@
 # node, the same check the verify workflow runs. A zero-width node (equal start and end position)
 # is how the parser fabricates a required child without reporting an error.
 #
-# Set TREE_SITTER to the CLI to use (default: tree-sitter on PATH). Run from the repository root.
+# Set TREE_SITTER to the command that runs the CLI (default: tree-sitter on PATH); it may be several
+# words, such as an npx invocation. Run from the repository root.
 set -euo pipefail
 
-ts="${TREE_SITTER:-tree-sitter}"
+read -r -a ts <<<"${TREE_SITTER:-tree-sitter}"
 fail=0
 
 for f in examples/*.cshtml; do
-  if ! output=$("$ts" parse "$f" 2>&1); then
+  if ! output=$("${ts[@]}" parse "$f" 2>&1); then
     parse_failed=1
   else
     parse_failed=0

@@ -73,7 +73,7 @@ Razor Implicit Expression in Html Tag
       (identifier))))
 
 =====
-Implict Razor Expression Mid Line
+Implicit Razor Expression Mid Line
 =====
 @{
     var quote = "Getting old ain't for wimps! - Anonymous";
@@ -96,7 +96,7 @@ Implict Razor Expression Mid Line
       (identifier))))
 
 =======
-Implict Razor Expressions
+Implicit Razor Expressions
 =======
 <p>@DateTime.Now</p>
 <p>@DateTime.IsLeapYear(2016)</p>
@@ -119,7 +119,7 @@ Implict Razor Expressions
             (integer_literal)))))))
 
 =====
-Implict Expression with spaces - after space is text
+Implicit Expression with spaces - after space is text
 =====
 
 <p>Last week: @DateTime.Now - TimeSpan.FromDays(7)</p>
@@ -133,7 +133,7 @@ Implict Expression with spaces - after space is text
         (identifier)))))
 
 =======
-Implict Razor Expressions With Generics - Should render Generic as tag
+Implicit Razor Expressions With Generics - Should render Generic as tag
 =======
 
 
