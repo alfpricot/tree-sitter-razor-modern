@@ -278,3 +278,35 @@ Switch labels are patterns, and stacked labels share a body
     (razor_switch_default
       (element)
       (break_statement))))
+
+====
+A default label may share the body of the label after it
+====
+
+@switch (value)
+{
+    case 1:
+        <p>one</p>
+        break;
+    default:
+    case 2:
+        <p>two or other</p>
+        break;
+}
+----
+
+(compilation_unit
+  (razor_switch
+    (razor_condition
+      (identifier))
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
+      (element))
+    (razor_switch_default)
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
+      (element))))

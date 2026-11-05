@@ -65,6 +65,7 @@ export default grammar(CSHARP, {
       $._implicit_question,
       $._raw_script_text,
       $._raw_style_text,
+      $._razor_event_name,
     ]),
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],
@@ -418,7 +419,7 @@ export default grammar(CSHARP, {
       ),
 
     razor_switch_default: ($) =>
-      prec.right(seq('default', ':', $._blended_content, optional('break;'))),
+      prec.right(seq('default', ':', optional($._blended_content), optional('break;'))),
 
     // A case label is a C# pattern with an optional `when` clause. A label with no body of its own
     // (`case 1:` directly followed by `case 2:`) shares the body of the label after it.
@@ -504,7 +505,9 @@ export default grammar(CSHARP, {
             // longer identifier such as `@bindings` is still read whole as an expression.
             token(prec(10, /bind-[A-Za-z_][A-Za-z0-9_]*/)),
             'formname',
-            token(prec(10, /on[a-z]+/i)),
+            // `@onclick` and the other event names: the scanner emits this only when `=` or `:` follows
+            // the name, so an expression such as `@onlineStatus` is still read as an expression.
+            $._razor_event_name,
             'key',
             'ref',
             'rendermode',
@@ -525,8 +528,18 @@ export default grammar(CSHARP, {
         ':set',
       ),
 
-    // Ends at the first `-->`; a lone `->` or `--` inside the comment does not close it.
-    html_comment: (_) => token(seq('<!--', /([^-]|-[^-]|--+[^->])*-{2,}/, '>')),
+    // Ends at the first `-->`; a lone `->` or `--` inside the comment does not close it. The
+    // abrupt forms `<!-->` and `<!--->` also close at once, as in a browser, so the body of the
+    // longest alternative cannot start with `>` or `->`.
+    html_comment: (_) =>
+      token(
+        choice(
+          '<!-->',
+          '<!--->',
+          seq('<!--', /--+/, '>'),
+          seq('<!--', /-*[^->]([^-]|-[^-]|--+[^->])*--+/, '>'),
+        ),
+      ),
 
     html_doctype: (_) => token(seq('<!', /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/, /[^>]*/, '>')),
 
@@ -536,6 +549,12 @@ export default grammar(CSHARP, {
     // still takes an end tag.
     _void_tag_name: (_) =>
       token(prec(1, /area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr/)),
+
+    // An explicit end tag on a void element (`<input></input>`, `<br></br>`) is accepted and
+    // ignored. It is one token so that a parent's end tag, which also starts with `</`, is never
+    // mistaken for it.
+    _void_end_tag: (_) =>
+      token(seq('</', /area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr/, /[ \t]*>/)),
 
     // The content of `script` and `style` is raw text up to the matching end tag, so a `<` in
     // inline JavaScript or CSS is not read as the start of a tag.
@@ -606,7 +625,12 @@ export default grammar(CSHARP, {
 
     element: ($) =>
       choice(
-        seq('<', $._void_tag_name, elementAttributes($), choice('/>', '>')),
+        seq(
+          '<',
+          $._void_tag_name,
+          elementAttributes($),
+          choice('/>', seq('>', optional($._void_end_tag))),
+        ),
         seq(
           '<',
           $._script_tag_name,
