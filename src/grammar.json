@@ -14405,9 +14405,49 @@
         ]
       }
     },
+    "_void_tag_name": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr"
+        }
+      }
+    },
+    "_script_tag_name": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "STRING",
+          "value": "script"
+        }
+      }
+    },
+    "_style_tag_name": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "STRING",
+          "value": "style"
+        }
+      }
+    },
     "_tag_name": {
-      "type": "PATTERN",
-      "value": "[a-zA-Z0-9-:]+"
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "[a-zA-Z0-9-:]+"
+        }
+      }
     },
     "_end_tag": {
       "type": "SEQ",
@@ -14541,7 +14581,7 @@
         "value": 2,
         "content": {
           "type": "PATTERN",
-          "value": "\\/\\/[^<\\r\\n]*"
+          "value": "\\/\\/([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*"
         }
       }
     },
@@ -14651,39 +14691,6 @@
           ]
         }
       ]
-    },
-    "_void_tag_name": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PREC",
-        "value": 1,
-        "content": {
-          "type": "PATTERN",
-          "value": "area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr"
-        }
-      }
-    },
-    "_script_tag_name": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PREC",
-        "value": 1,
-        "content": {
-          "type": "STRING",
-          "value": "script"
-        }
-      }
-    },
-    "_style_tag_name": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PREC",
-        "value": 1,
-        "content": {
-          "type": "STRING",
-          "value": "style"
-        }
-      }
     },
     "element": {
       "type": "CHOICE",
@@ -14830,16 +14837,20 @@
                       "value": ">"
                     },
                     {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_raw_script_text"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
+                      "type": "REPEAT",
+                      "content": {
+                        "type": "CHOICE",
+                        "members": [
+                          {
+                            "type": "SYMBOL",
+                            "name": "_raw_script_text"
+                          },
+                          {
+                            "type": "SYMBOL",
+                            "name": "_node"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "SYMBOL",
@@ -14922,16 +14933,20 @@
                       "value": ">"
                     },
                     {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "SYMBOL",
-                          "name": "_raw_style_text"
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
+                      "type": "REPEAT",
+                      "content": {
+                        "type": "CHOICE",
+                        "members": [
+                          {
+                            "type": "SYMBOL",
+                            "name": "_raw_style_text"
+                          },
+                          {
+                            "type": "SYMBOL",
+                            "name": "_node"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "SYMBOL",

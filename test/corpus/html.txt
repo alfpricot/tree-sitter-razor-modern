@@ -148,3 +148,81 @@ Double slash inside an element is text
 (compilation_unit
   (element)
   (element))
+
+==================
+Tag names that start with a void, script, or style name stay ordinary elements
+==================
+
+<table><colgroup><col></colgroup></table>
+<svg><metadata>x</metadata></svg>
+<input-group>x</input-group>
+<scripts>x</scripts>
+
+---
+
+(compilation_unit
+  (element
+    (element
+      (element)))
+  (element
+    (element))
+  (element)
+  (element))
+
+==================
+Razor expressions inside script and style are still parsed
+==================
+
+<script>var id = @Model.Id; var o = @Html.Raw(json); if (a < b) { x = "u@example.com"; }
+@if (x) { <b>y</b> }
+</script>
+<style>.a { color: @color; } p<q{}</style>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier)))
+    (razor_implicit_expression
+      (invocation_expression
+        function: (member_access_expression
+          expression: (identifier)
+          name: (identifier))
+        arguments: (argument_list
+          (argument
+            (identifier)))))
+    (razor_if
+      (razor_condition
+        (identifier))
+      (element)))
+  (element
+    (razor_implicit_expression
+      (identifier))))
+
+==================
+A Razor expression after a double slash in an element is still parsed
+==================
+
+<span>@Model.Start // @Model.End</span>
+<p>// updated @DateTime.Now</p>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier)))
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier))))
+  (element
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier)))))
