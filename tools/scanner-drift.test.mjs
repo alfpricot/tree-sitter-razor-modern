@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +43,15 @@ test('the check runs when the script is reached through a symlink', (t) => {
       t.skip('symbolic links are not available here');
       return;
     }
-    const output = execFileSync(process.execPath, [link], { encoding: 'utf8' });
+    // The script reads its inputs relative to the working directory, so give it a directory of
+    // its own with matching fixtures: the result then does not depend on the repository's state.
+    const upstreamDir = join(root, 'node_modules', 'tree-sitter-c-sharp');
+    mkdirSync(join(upstreamDir, 'src'), { recursive: true });
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(upstreamDir, 'package.json'), '{"version":"1.2.3"}');
+    writeFileSync(join(upstreamDir, 'src', 'scanner.c'), source(['A', 'B'], ''));
+    writeFileSync(join(root, 'src', 'scanner.c'), source(['A', 'B', 'IMPLICIT_DOT']));
+    const output = execFileSync(process.execPath, [link], { cwd: root, encoding: 'utf8' });
     assert.match(output, /token order/);
   } finally {
     rmSync(root, { recursive: true, force: true });

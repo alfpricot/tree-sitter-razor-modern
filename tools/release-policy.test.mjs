@@ -160,7 +160,11 @@ test('the command runs when the script is reached through a symlink', (t) => {
       t.skip('symbolic links are not available here');
       return;
     }
-    assert.throws(() => execFileSync(process.execPath, [link, 'bogus'], { stdio: 'pipe' }));
+    // Only the command's own error proves that the guard let it run.
+    assert.throws(
+      () => execFileSync(process.execPath, [link, 'bogus'], { encoding: 'utf8', stdio: 'pipe' }),
+      (error) => /unknown command "bogus"/.test(String(error.stderr)),
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
