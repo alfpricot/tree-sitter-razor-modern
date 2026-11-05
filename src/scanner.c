@@ -26,6 +26,8 @@ enum TokenType {
     IMPLICIT_PAREN,
     IMPLICIT_BRACKET,
     IMPLICIT_LT,
+    RAW_SCRIPT_TEXT,
+    RAW_STYLE_TEXT,
 };
 
 typedef enum {
@@ -173,6 +175,69 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
     return false;
 }
 
+// Scans the raw text of a `script` or `style` element: everything up to, but not including, the
+// matching end tag (`</script` or `</style`, any case, followed by whitespace, `/` or `>`), or a
+// Razor `@` transition, which the grammar parses as code. An `@` between two letters or digits is
+// part of the text (an email address), the same as in markup text. The token is left out when
+// there is no content before the stopping point.
+static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol) {
+    bool has_content = false;
+    int32_t previous = 0;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead != 0) {
+        if (lexer->lookahead == '@') {
+            if (iswalnum(previous)) {
+                advance(lexer);
+                if (iswalnum(lexer->lookahead)) {
+                    lexer->mark_end(lexer);
+                    previous = '@';
+                    continue;
+                }
+            }
+            // The token ends before the `@`, where the last mark was left.
+            if (!has_content) {
+                return false;
+            }
+            lexer->result_symbol = symbol;
+            return true;
+        }
+        if (lexer->lookahead != '<') {
+            previous = lexer->lookahead;
+            advance(lexer);
+            lexer->mark_end(lexer);
+            has_content = true;
+            continue;
+        }
+        // Candidate end tag: the token ends before this `<` when it turns out to be one.
+        advance(lexer);
+        if (lexer->lookahead == '/') {
+            advance(lexer);
+            const char *c = tag;
+            while (*c != '\0' && towlower(lexer->lookahead) == *c) {
+                advance(lexer);
+                c++;
+            }
+            if (*c == '\0' && (lexer->lookahead == '>' || lexer->lookahead == '/' ||
+                               iswspace(lexer->lookahead))) {
+                if (!has_content) {
+                    return false;
+                }
+                lexer->result_symbol = symbol;
+                return true;
+            }
+        }
+        // Not an end tag: the characters just read are content.
+        previous = 0;
+        lexer->mark_end(lexer);
+        has_content = true;
+    }
+    if (!has_content) {
+        return false;
+    }
+    lexer->result_symbol = symbol;
+    return true;
+}
+
 bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
 
@@ -187,7 +252,22 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     if (valid_symbols[IMPLICIT_DOT] || valid_symbols[IMPLICIT_PAREN] ||
         valid_symbols[IMPLICIT_BRACKET] || valid_symbols[IMPLICIT_LT]) {
-        return scan_implicit_continuation(lexer, valid_symbols);
+        // After an implicit expression inside a script or style element, the text that follows
+        // it is raw text, so a failed continuation falls through to the raw text scan.
+        if (scan_implicit_continuation(lexer, valid_symbols)) {
+            return true;
+        }
+        if (!valid_symbols[RAW_SCRIPT_TEXT] && !valid_symbols[RAW_STYLE_TEXT]) {
+            return false;
+        }
+    }
+
+    if (valid_symbols[RAW_SCRIPT_TEXT]) {
+        return scan_raw_text(lexer, "script", RAW_SCRIPT_TEXT);
+    }
+
+    if (valid_symbols[RAW_STYLE_TEXT]) {
+        return scan_raw_text(lexer, "style", RAW_STYLE_TEXT);
     }
 
     if (valid_symbols[OPT_SEMI]) {

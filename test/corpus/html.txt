@@ -65,3 +65,164 @@ complex html
 
 (compilation_unit
   (element))
+
+==================
+Void elements without a closing slash
+==================
+
+<p>a<br>b</p>
+<input type="text" name="q">
+<meta charset="utf-8">
+<hr />
+
+---
+
+(compilation_unit
+  (element
+    (element))
+  (element)
+  (element)
+  (element))
+
+==================
+A component named like a void element still takes an end tag
+==================
+
+<Link>text</Link>
+
+---
+
+(compilation_unit
+  (element))
+
+==================
+Script content may contain a less-than sign
+==================
+
+<script>if (a < b && c</d) { x = "</scr" + "ipt>"; }</script>
+<p>after</p>
+
+---
+
+(compilation_unit
+  (element)
+  (element))
+
+==================
+Style content may contain a less-than sign
+==================
+
+<style>a > b { color: red } p<q {}</STYLE>
+<script src="x.js"></script>
+<script></script>
+
+---
+
+(compilation_unit
+  (element)
+  (element)
+  (element))
+
+==================
+An HTML comment is not closed by a lone dash and angle bracket
+==================
+
+<!-- a -> b -- c -->
+<p>after</p>
+
+---
+
+(compilation_unit
+  (html_comment)
+  (element))
+
+==================
+Double slash inside an element is text
+==================
+
+<p>//note</p>
+<a href="x">see http://example.com/page</a>
+
+---
+
+(compilation_unit
+  (element)
+  (element))
+
+==================
+Tag names that start with a void, script, or style name stay ordinary elements
+==================
+
+<table><colgroup><col></colgroup></table>
+<svg><metadata>x</metadata></svg>
+<input-group>x</input-group>
+<scripts>x</scripts>
+
+---
+
+(compilation_unit
+  (element
+    (element
+      (element)))
+  (element
+    (element))
+  (element)
+  (element))
+
+==================
+Razor expressions inside script and style are still parsed
+==================
+
+<script>var id = @Model.Id; var o = @Html.Raw(json); if (a < b) { x = "u@example.com"; }
+@if (x) { <b>y</b> }
+</script>
+<style>.a { color: @color; } p<q{}</style>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier)))
+    (razor_implicit_expression
+      (invocation_expression
+        function: (member_access_expression
+          expression: (identifier)
+          name: (identifier))
+        arguments: (argument_list
+          (argument
+            (identifier)))))
+    (razor_if
+      (razor_condition
+        (identifier))
+      (element)))
+  (element
+    (razor_implicit_expression
+      (identifier))))
+
+==================
+A Razor expression after a double slash in an element is still parsed
+==================
+
+<span>@Model.Start // @Model.End</span>
+<p>// updated @DateTime.Now</p>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier)))
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier))))
+  (element
+    (razor_implicit_expression
+      (member_access_expression
+        expression: (identifier)
+        name: (identifier)))))

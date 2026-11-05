@@ -25,11 +25,38 @@ function commaSep1(rule) {
   return seq(rule, repeat(seq(',', rule)));
 }
 
+/**
+ * The attributes and embedded expressions between an element's tag name and its closing `>`.
+ * @param {GrammarSymbols<string>} $
+ */
+function elementAttributes($) {
+  return repeat(
+    prec.left(
+      seq(
+        choice(
+          $._html_attribute,
+          $.razor_html_attribute,
+          $.razor_explicit_expression,
+          $.razor_implicit_expression,
+        ),
+        optional(' '),
+      ),
+    ),
+  );
+}
+
 export default grammar(CSHARP, {
   name: 'razor',
 
   externals: ($, original) =>
-    original.concat([$._implicit_dot, $._implicit_paren, $._implicit_bracket, $._implicit_lt]),
+    original.concat([
+      $._implicit_dot,
+      $._implicit_paren,
+      $._implicit_bracket,
+      $._implicit_lt,
+      $._raw_script_text,
+      $._raw_style_text,
+    ]),
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],
 
@@ -445,12 +472,26 @@ export default grammar(CSHARP, {
 
     razor_attribute_modifier: (_) => choice(':culture', ':preventDefault', ':stopPropagation'),
 
-    html_comment: (_) => token(seq('<!--', /[^-]*-+([^->][^-]*-+)*/, '>')),
+    // Ends at the first `-->`; a lone `->` or `--` inside the comment does not close it.
+    html_comment: (_) => token(seq('<!--', /([^-]|-[^-]|--+[^->])*-{2,}/, '>')),
 
     html_doctype: (_) => token(seq('<!', /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/, /[^>]*/, '>')),
 
     // HTML Base Definitions
-    _tag_name: (_) => /[a-zA-Z0-9-:]+/,
+    // The HTML void elements never have content or an end tag, so `<br>` and `<br />` are both
+    // complete. Only the lowercase spelling is recognized so that a component such as `<Link>`
+    // still takes an end tag.
+    _void_tag_name: (_) =>
+      token(prec(1, /area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr/)),
+
+    // The content of `script` and `style` is raw text up to the matching end tag, so a `<` in
+    // inline JavaScript or CSS is not read as the start of a tag.
+    _script_tag_name: (_) => token(prec(1, 'script')),
+    _style_tag_name: (_) => token(prec(1, 'style')),
+
+    // Same precedence as the void, script, and style names above, so a longer name that merely
+    // starts with one of them (`colgroup`, `metadata`, `input-group`) is still read whole.
+    _tag_name: (_) => token(prec(1, /[a-zA-Z0-9-:]+/)),
     _end_tag: ($) => seq('</', $._tag_name, '>'),
     _html_attribute_name: (_) => /[a-zA-Z0-9_:.\-]+/,
     _html_attribute_value: ($) =>
@@ -479,6 +520,10 @@ export default grammar(CSHARP, {
     _html_text: (_) =>
       /([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
+    // Inside an element, `//` is ordinary text (a URL scheme separator, a note), not a C#
+    // comment, so this outranks the `comment` extra and keeps it from swallowing the end tag.
+    _html_slash_text: (_) => token(prec(2, /\/\/([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*/)),
+
     // A directive attribute value is C# by default, and may also open with an explicit `@`
     // transition (`@onclick="@Handler"`, `@onclick="@(e => Save(e))"`), which Razor accepts and
     // treats the same way.
@@ -500,25 +545,29 @@ export default grammar(CSHARP, {
       seq($.razor_attribute_name, optional(seq('=', $.razor_attribute_value))),
 
     element: ($) =>
-      seq(
-        '<',
-        $._tag_name,
-        optional(
-          repeat(
-            prec.left(
-              seq(
-                choice(
-                  $._html_attribute,
-                  $.razor_html_attribute,
-                  $.razor_explicit_expression,
-                  $.razor_implicit_expression,
-                ),
-                optional(' '),
-              ),
-            ),
+      choice(
+        seq('<', $._void_tag_name, elementAttributes($), choice('/>', '>')),
+        seq(
+          '<',
+          $._script_tag_name,
+          elementAttributes($),
+          choice('/>', seq('>', repeat(choice($._raw_script_text, $._node)), $._end_tag)),
+        ),
+        seq(
+          '<',
+          $._style_tag_name,
+          elementAttributes($),
+          choice('/>', seq('>', repeat(choice($._raw_style_text, $._node)), $._end_tag)),
+        ),
+        seq(
+          '<',
+          $._tag_name,
+          elementAttributes($),
+          choice(
+            '/>',
+            seq('>', repeat(choice($._node, $._html_text, $._html_slash_text)), $._end_tag),
           ),
         ),
-        choice('/>', seq('>', repeat(choice($._node, $._html_text)), $._end_tag)),
       ),
   },
 });
