@@ -35,7 +35,7 @@ cargo test
 The `Verify` workflow runs these steps, plus `npm install` and `npm test` for the Node binding, a package-contents check, secret scanning, and workflow linting. After the first two commands, `git diff` should show no change to the generated parser or to `test/node-kinds.txt`; CI fails when either is out of date.
 
 - `test/corpus/` holds tree assertions for each Razor construct, and `test/highlight/` holds highlight assertions. Add a corpus test for every grammar change.
-- `examples/*.cshtml` and `examples/*.razor` hold sanitized real pages and components that must parse with no `ERROR`, `MISSING`, or zero-width nodes. `test/check-examples.sh` runs the same per-file check as CI; set `TREE_SITTER` to the CLI to use.
+- `examples/*.cshtml` and `examples/*.razor` hold sanitized pages and sample components that must parse with no `ERROR`, `MISSING`, or zero-width nodes. `test/check-examples.sh` runs the same per-file check as CI; set `TREE_SITTER` to the CLI to use.
 - Run `npm run format` to apply formatting. The generated parser under `src/` is excluded.
 
 ## Pull requests

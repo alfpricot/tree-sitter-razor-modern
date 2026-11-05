@@ -8,7 +8,7 @@
 
     <div class="field">
         <label for="name">Name</label>
-        <InputText id="name" @bind-Value="model.Name" @bind-Value:event="oninput" class="form-control" />
+        <InputText id="name" @bind-Value="model.Name" @bind-Value:after="OnNameChanged" class="form-control" />
         <ValidationMessage For="@(() => model.Name)" />
     </div>
 
@@ -51,6 +51,8 @@
         saving = false;
         saved = true;
     }
+
+    private void OnNameChanged() => saved = false;
 
     private void OnSubscribeChanged() => saved = false;
 
