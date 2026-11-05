@@ -116,9 +116,9 @@ export default grammar(CSHARP, {
             $.razor_taghelperprefix_directive,
           ),
         ),
-        // Text is only valid after the first node or block: directly after a directive, a
-        // text run would compete with the string that `@page` optionally takes.
-        optional(seq($._node, repeat(choice($._node, $._html_text)))),
+        // A leading text run must start with a letter or digit, so it cannot compete with the
+        // string that `@page` optionally takes or with the end of a directive's name.
+        optional(seq(choice($._node, $._html_text_start), repeat(choice($._node, $._html_text)))),
       ),
 
     _identifier_token: (_) =>
@@ -201,13 +201,24 @@ export default grammar(CSHARP, {
     razor_inherits_directive: ($) =>
       seq(alias(seq($._razor_marker, 'inherits'), 'at_inherits'), field('name', $._name)),
     razor_typeparam_directive: ($) =>
-      seq(alias(seq($._razor_marker, 'typeparam'), 'at_typeparam'), field('name', $._name)),
+      seq(
+        alias(seq($._razor_marker, 'typeparam'), 'at_typeparam'),
+        field('name', $._name),
+        repeat(alias($._typeparam_constraints_clause, $.type_parameter_constraints_clause)),
+      ),
+    // A `where` clause on a type parameter. Its keyword outranks the text that may follow a
+    // directive, which would otherwise take the whole line as text because it matches more.
+    _typeparam_constraints_clause: ($) =>
+      seq(token(prec(3, 'where')), $.identifier, ':', commaSep1($.type_parameter_constraint)),
     razor_inject_directive: ($) =>
       seq(alias(seq($._razor_marker, 'inject'), 'at_inject'), $.variable_declaration),
     razor_namespace_directive: ($) =>
-      seq(alias(seq($._razor_marker, 'namespace'), 'at_namespace'), $.qualified_name),
+      seq(alias(seq($._razor_marker, 'namespace'), 'at_namespace'), $._name),
     razor_rendermode_directive: ($) =>
-      seq(alias(seq($._razor_marker, 'rendermode'), 'at_rendermode'), $.razor_rendermode),
+      seq(
+        alias(seq($._razor_marker, 'rendermode'), 'at_rendermode'),
+        choice($.razor_rendermode, $._name, $.razor_explicit_expression),
+      ),
     razor_rendermode: (_) =>
       choice('InteractiveServer', 'InteractiveWebAssembly', 'InteractiveAuto'),
 
@@ -519,6 +530,12 @@ export default grammar(CSHARP, {
     // absorbed into the text before it.
     _html_text: (_) =>
       /([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
+
+    // The same text as `_html_text`, but it must start with a letter or digit. Directly after a
+    // directive this keeps the text from taking a double quote (the `@page` string) or the
+    // punctuation that continues a directive's name (`.`, `<`, `?`) away from it.
+    _html_text_start: (_) =>
+      /[\p{L}\p{N}](([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
     // Inside an element, `//` is ordinary text (a URL scheme separator, a note), not a C#
     // comment, so this outranks the `comment` extra and keeps it from swallowing the end tag.
