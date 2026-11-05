@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { scannerDrift, tokenTypes } from './scanner-drift.mjs';
 
@@ -26,4 +31,29 @@ test('the copy must name the installed upstream version', () => {
   const upstream = source(['A'], '');
   assert.equal(scannerDrift(source(['A']), upstream, '1.2.4').length, 1);
   assert.equal(scannerDrift(source(['A'], ''), upstream, '1.2.3').length, 1);
+});
+
+test('the check runs when the script is reached through a symlink', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'razor-modern-drift-'));
+  try {
+    const link = join(root, 'scanner-drift.mjs');
+    try {
+      symlinkSync(fileURLToPath(new URL('./scanner-drift.mjs', import.meta.url)), link);
+    } catch {
+      t.skip('symbolic links are not available here');
+      return;
+    }
+    // The script reads its inputs relative to the working directory, so give it a directory of
+    // its own with matching fixtures: the result then does not depend on the repository's state.
+    const upstreamDir = join(root, 'node_modules', 'tree-sitter-c-sharp');
+    mkdirSync(join(upstreamDir, 'src'), { recursive: true });
+    mkdirSync(join(root, 'src'));
+    writeFileSync(join(upstreamDir, 'package.json'), '{"version":"1.2.3"}');
+    writeFileSync(join(upstreamDir, 'src', 'scanner.c'), source(['A', 'B'], ''));
+    writeFileSync(join(root, 'src', 'scanner.c'), source(['A', 'B', 'IMPLICIT_DOT']));
+    const output = execFileSync(process.execPath, [link], { cwd: root, encoding: 'utf8' });
+    assert.match(output, /token order/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

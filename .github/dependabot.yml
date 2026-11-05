@@ -83,14 +83,24 @@ updates:
       - dependabot
       - javascript
     groups:
+      # tree-sitter-c-sharp gets its own pull request: a new version needs the vendored scanner
+      # compared with the upstream one (tools/scanner-drift.mjs fails until its header is updated),
+      # which would otherwise block unrelated bumps grouped with it.
+      tree-sitter-c-sharp:
+        patterns:
+          - tree-sitter-c-sharp
       npm-minor-and-patch:
         patterns:
           - '*'
+        exclude-patterns:
+          - tree-sitter-c-sharp
         update-types:
           - minor
           - patch
       npm-major:
         patterns:
           - '*'
+        exclude-patterns:
+          - tree-sitter-c-sharp
         update-types:
           - major

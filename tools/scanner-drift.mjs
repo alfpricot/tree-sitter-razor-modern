@@ -27,7 +27,9 @@ export function scannerDrift(ours, upstream, upstreamVersion) {
     problems.push('src/scanner.c has no "// Upstream: tree-sitter-c-sharp X.Y.Z" header');
   } else if (marker[1] !== upstreamVersion) {
     problems.push(
-      `src/scanner.c is marked as copied from tree-sitter-c-sharp ${marker[1]} but ${upstreamVersion} is installed`,
+      `src/scanner.c is marked as copied from tree-sitter-c-sharp ${marker[1]} but ${upstreamVersion} is installed; ` +
+        `diff node_modules/tree-sitter-c-sharp/src/scanner.c against src/scanner.c, carry over any upstream change, ` +
+        `then update the "// Upstream:" header`,
     );
   }
   const ourTokens = tokenTypes(ours);

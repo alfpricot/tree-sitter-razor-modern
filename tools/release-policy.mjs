@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { appendFileSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export function cargoVersion(manifest) {
   const section = manifest.split(/^\[package\]\s*$/m)[1]?.split(/^\[/m)[0];
@@ -113,6 +113,11 @@ export function runCommand(command, env = process.env) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+// Compare real paths: import.meta.url is already resolved, argv[1] is not, so a symlinked
+// invocation would otherwise skip the command and exit 0 without checking anything.
+if (
+  process.argv[1] !== undefined &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
+) {
   runCommand(process.argv[2]);
 }
