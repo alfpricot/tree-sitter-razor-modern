@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import {
   canAttest,
@@ -148,4 +148,20 @@ test('a tag cut before gala wrote the version files keeps publish-time versions'
 test('an unknown command fails instead of passing without doing anything', () => {
   assert.throws(() => runCommand('publish-npm', {}), /unknown command "publish-npm"/);
   assert.throws(() => runCommand(undefined, {}), /unknown command/);
+});
+
+test('the command runs when the script is reached through a symlink', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'razor-modern-link-'));
+  try {
+    const link = join(root, 'release-policy.mjs');
+    try {
+      symlinkSync(fileURLToPath(new URL('./release-policy.mjs', import.meta.url)), link);
+    } catch {
+      t.skip('symbolic links are not available here');
+      return;
+    }
+    assert.throws(() => execFileSync(process.execPath, [link, 'bogus'], { stdio: 'pipe' }));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

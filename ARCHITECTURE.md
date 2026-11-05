@@ -63,6 +63,6 @@ A parse runs from a consumer's call into the binding (Rust or Node), through the
 | `queries/` | Highlight and injection queries |
 | `bindings/` | Rust and Node bindings |
 | `test/`, `examples/` | Corpus, highlight, and example-page tests |
-| `tools/` | Release-policy and package-check scripts |
+| `tools/` | Release-policy, package-check, and scanner-drift scripts |
 | `docs/` | Supporting documents |
 | `.github/workflows/` | Verify, release, and maintenance workflows |
