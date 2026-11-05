@@ -26,6 +26,8 @@ enum TokenType {
     IMPLICIT_PAREN,
     IMPLICIT_BRACKET,
     IMPLICIT_LT,
+    RAW_SCRIPT_TEXT,
+    RAW_STYLE_TEXT,
 };
 
 typedef enum {
@@ -173,6 +175,48 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
     return false;
 }
 
+// Scans the raw text of a `script` or `style` element: everything up to, but not including, the
+// matching end tag (`</script` or `</style`, any case, followed by whitespace, `/` or `>`). The
+// token is left out when the element has no content.
+static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol) {
+    bool has_content = false;
+    lexer->mark_end(lexer);
+    while (lexer->lookahead != 0) {
+        if (lexer->lookahead != '<') {
+            advance(lexer);
+            lexer->mark_end(lexer);
+            has_content = true;
+            continue;
+        }
+        // Candidate end tag: the token ends before this `<` when it turns out to be one.
+        advance(lexer);
+        if (lexer->lookahead == '/') {
+            advance(lexer);
+            const char *c = tag;
+            while (*c != '\0' && towlower(lexer->lookahead) == *c) {
+                advance(lexer);
+                c++;
+            }
+            if (*c == '\0' && (lexer->lookahead == '>' || lexer->lookahead == '/' ||
+                               iswspace(lexer->lookahead))) {
+                if (!has_content) {
+                    return false;
+                }
+                lexer->result_symbol = symbol;
+                return true;
+            }
+        }
+        // Not an end tag: the characters just read are content.
+        lexer->mark_end(lexer);
+        has_content = true;
+    }
+    if (!has_content) {
+        return false;
+    }
+    lexer->result_symbol = symbol;
+    return true;
+}
+
 bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
 
@@ -183,6 +227,14 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // error recovery, gives better trees this way
     if (valid_symbols[OPT_SEMI] && valid_symbols[INTERPOLATION_REGULAR_START]) {
         return false;
+    }
+
+    if (valid_symbols[RAW_SCRIPT_TEXT]) {
+        return scan_raw_text(lexer, "script", RAW_SCRIPT_TEXT);
+    }
+
+    if (valid_symbols[RAW_STYLE_TEXT]) {
+        return scan_raw_text(lexer, "style", RAW_STYLE_TEXT);
     }
 
     if (valid_symbols[IMPLICIT_DOT] || valid_symbols[IMPLICIT_PAREN] ||

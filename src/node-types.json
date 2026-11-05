@@ -9860,6 +9860,10 @@
     "named": false
   },
   {
+    "type": "script",
+    "named": false
+  },
+  {
     "type": "sealed",
     "named": false
   },
@@ -9901,6 +9905,10 @@
   },
   {
     "type": "struct",
+    "named": false
+  },
+  {
+    "type": "style",
     "named": false
   },
   {

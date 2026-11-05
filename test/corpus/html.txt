@@ -65,3 +65,86 @@ complex html
 
 (compilation_unit
   (element))
+
+==================
+Void elements without a closing slash
+==================
+
+<p>a<br>b</p>
+<input type="text" name="q">
+<meta charset="utf-8">
+<hr />
+
+---
+
+(compilation_unit
+  (element
+    (element))
+  (element)
+  (element)
+  (element))
+
+==================
+A component named like a void element still takes an end tag
+==================
+
+<Link>text</Link>
+
+---
+
+(compilation_unit
+  (element))
+
+==================
+Script content may contain a less-than sign
+==================
+
+<script>if (a < b && c</d) { x = "</scr" + "ipt>"; }</script>
+<p>after</p>
+
+---
+
+(compilation_unit
+  (element)
+  (element))
+
+==================
+Style content may contain a less-than sign
+==================
+
+<style>a > b { color: red } p<q {}</STYLE>
+<script src="x.js"></script>
+<script></script>
+
+---
+
+(compilation_unit
+  (element)
+  (element)
+  (element))
+
+==================
+An HTML comment is not closed by a lone dash and angle bracket
+==================
+
+<!-- a -> b -- c -->
+<p>after</p>
+
+---
+
+(compilation_unit
+  (html_comment)
+  (element))
+
+==================
+Double slash inside an element is text
+==================
+
+<p>//note</p>
+<a href="x">see http://example.com/page</a>
+
+---
+
+(compilation_unit
+  (element)
+  (element))
