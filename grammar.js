@@ -66,6 +66,7 @@ export default grammar(CSHARP, {
       $._raw_script_text,
       $._raw_style_text,
       $._razor_event_name,
+      $._typeparam_where,
     ]),
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],
@@ -126,13 +127,14 @@ export default grammar(CSHARP, {
             $.razor_taghelperprefix_directive,
           ),
         ),
-        // A leading text run must start with a letter or digit, so it cannot compete with the
-        // string that `@page` optionally takes or with the end of a directive's name.
+        // A leading text run has to start with a character that cannot continue a directive (see
+        // `_html_text_start`), so it cannot compete with the string that `@page` optionally takes
+        // or with the end of a directive's name.
         optional(seq(choice($._node, $._html_text_start), bodyRest($))),
       ),
 
     // `@using` and `@inject` may also appear after the first node. Text directly after one of
-    // them has to start with a letter or digit, for the same reason as the first text run: a
+    // them has to start like the first text run (see `_html_text_start`), for the same reason: a
     // text run starting with `.` would otherwise take the rest of a dotted name.
     _late_directive: ($) =>
       seq(
@@ -225,10 +227,16 @@ export default grammar(CSHARP, {
         field('name', $._name),
         repeat(alias($._typeparam_constraints_clause, $.type_parameter_constraints_clause)),
       ),
-    // A `where` clause on a type parameter. Its keyword outranks the text that may follow a
-    // directive, which would otherwise take the whole line as text because it matches more.
+    // A `where` clause on a type parameter. The scanner emits its keyword only when a name and a
+    // colon follow on the same line, so a line of text that merely starts with the word `where`
+    // is still text.
     _typeparam_constraints_clause: ($) =>
-      seq(token(prec(3, 'where')), $.identifier, ':', commaSep1($.type_parameter_constraint)),
+      seq(
+        alias($._typeparam_where, 'where'),
+        $.identifier,
+        ':',
+        commaSep1($.type_parameter_constraint),
+      ),
     razor_inject_directive: ($) =>
       seq(alias(seq($._razor_marker, 'inject'), 'at_inject'), $.variable_declaration),
     razor_namespace_directive: ($) =>
@@ -317,7 +325,8 @@ export default grammar(CSHARP, {
         field('name', $._implicit_member_name),
       ),
 
-    // `@a?.b`: the `?` is scanned only when a `.` and a name follow it directly. Razor does not
+    // `@a?.b` and `@a?[0]`: the `?` is scanned only when a `.` and a name, or a `[`, follow it
+    // directly. Razor does not
     // allow generic type arguments in an implicit expression, so `@a<b>(c)` leaves `<b>` as a tag.
     _implicit_member_binding: ($) =>
       seq(alias($._implicit_dot, '.'), field('name', $._implicit_member_name)),
@@ -326,7 +335,10 @@ export default grammar(CSHARP, {
       seq(
         field('condition', $._implicit_chain),
         alias($._implicit_question, '?'),
-        alias($._implicit_member_binding, $.member_binding_expression),
+        choice(
+          alias($._implicit_member_binding, $.member_binding_expression),
+          alias($._implicit_subscript, $.element_binding_expression),
+        ),
       ),
 
     _implicit_argument_list: ($) => seq(alias($._implicit_paren, '('), commaSep($.argument), ')'),
@@ -593,11 +605,12 @@ export default grammar(CSHARP, {
     _html_text: (_) =>
       /([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
-    // The same text as `_html_text`, but it must start with a letter or digit. Directly after a
-    // directive this keeps the text from taking a double quote (the `@page` string) or the
-    // punctuation that continues a directive's name (`.`, `<`, `?`) away from it.
+    // The same text as `_html_text`, but it must start with a letter, a digit, or one of a few
+    // punctuation marks. Directly after a directive this keeps the text from taking a double quote
+    // (the `@page` string) or the punctuation that continues a directive's name (`.`, `<`, `?`,
+    // `[`, `(`, `,`, `:`) away from it, and from a `/` that starts a comment.
     _html_text_start: (_) =>
-      /([\p{L}\p{N}]@[\p{L}\p{N}]|[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
+      /([\p{L}\p{N}]@[\p{L}\p{N}]|[\p{L}\p{N}&!'$%+~^|-])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
 
     // Inside an element, `//` is ordinary text (a URL scheme separator, a note), not a C#
     // comment, so this outranks the `comment` extra and keeps it from swallowing the end tag.

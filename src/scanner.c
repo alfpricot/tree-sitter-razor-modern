@@ -30,6 +30,7 @@ enum TokenType {
     RAW_SCRIPT_TEXT,
     RAW_STYLE_TEXT,
     RAZOR_EVENT_NAME,
+    TYPEPARAM_WHERE,
 };
 
 typedef enum {
@@ -156,6 +157,10 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
         advance(lexer);
         *consumed = true;
         lexer->mark_end(lexer);
+        if (lexer->lookahead == '[') {
+            lexer->result_symbol = IMPLICIT_QUESTION;
+            return true;
+        }
         if (lexer->lookahead != '.') {
             return false;
         }
@@ -259,6 +264,51 @@ static bool scan_event_name(TSLexer *lexer) {
     return true;
 }
 
+static bool is_blank(int32_t c) { return c == ' ' || c == '\t'; }
+
+static bool is_name_start(int32_t c) { return c == '_' || c == '@' || iswalpha(c) || c >= 128; }
+
+static bool is_name_part(int32_t c) { return c == '_' || iswalnum(c) || c >= 128; }
+
+// Scans the `where` keyword of a type parameter constraint clause. It is the keyword only when a
+// name and a colon follow on the same line (`where TItem : class`), as a directive ends at its line
+// break, so a line of text that starts with the word `where` is not mistaken for it. The token
+// ends after the keyword.
+static bool scan_typeparam_where(TSLexer *lexer) {
+    while (is_blank(lexer->lookahead)) {
+        skip(lexer);
+    }
+    const char *word = "where";
+    for (const char *c = word; *c != '\0'; c++) {
+        if (lexer->lookahead != *c) {
+            return false;
+        }
+        advance(lexer);
+    }
+    lexer->mark_end(lexer);
+    if (!is_blank(lexer->lookahead)) {
+        return false;
+    }
+    while (is_blank(lexer->lookahead)) {
+        advance(lexer);
+    }
+    if (!is_name_start(lexer->lookahead)) {
+        return false;
+    }
+    advance(lexer);
+    while (is_name_part(lexer->lookahead)) {
+        advance(lexer);
+    }
+    while (is_blank(lexer->lookahead)) {
+        advance(lexer);
+    }
+    if (lexer->lookahead != ':') {
+        return false;
+    }
+    lexer->result_symbol = TYPEPARAM_WHERE;
+    return true;
+}
+
 bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
 
@@ -274,6 +324,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
 
     if (valid_symbols[RAZOR_EVENT_NAME]) {
         return scan_event_name(lexer);
+    }
+
+    if (valid_symbols[TYPEPARAM_WHERE]) {
+        return scan_typeparam_where(lexer);
     }
 
     if (valid_symbols[IMPLICIT_DOT] || valid_symbols[IMPLICIT_PAREN] ||
