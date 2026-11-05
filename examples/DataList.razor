@@ -1,0 +1,39 @@
+@namespace ExampleApp.Components
+@typeparam TItem where TItem : notnull
+
+<ul class="data-list">
+    @foreach (var item in Items)
+    {
+        <li @key="item">
+            @if (ItemTemplate is not null)
+            {
+                @ItemTemplate(item)
+            }
+            else
+            {
+                @item.ToString()
+            }
+        </li>
+    }
+</ul>
+
+@if (Footer is not null)
+{
+    <div class="footer">@Footer</div>
+}
+
+<div class="content">@ChildContent</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TItem> Items { get; set; } = Array.Empty<TItem>();
+
+    [Parameter]
+    public RenderFragment<TItem>? ItemTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

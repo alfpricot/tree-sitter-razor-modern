@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parses every examples/*.cshtml page and fails on any ERROR node, MISSING node, or zero-width
+# Parses every examples/*.cshtml page and examples/*.razor component and fails on any ERROR node, MISSING node, or zero-width
 # node, the same check the verify workflow runs. A zero-width node (equal start and end position)
 # is how the parser fabricates a required child without reporting an error.
 #
@@ -17,7 +17,7 @@ annotate() {
   fi
 }
 
-for f in examples/*.cshtml; do
+for f in examples/*.cshtml examples/*.razor; do
   if ! output=$("${ts[@]}" parse "$f" 2>&1); then
     parse_failed=1
   else
