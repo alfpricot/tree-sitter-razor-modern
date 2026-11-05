@@ -13861,8 +13861,16 @@
             "value": ":"
           },
           {
-            "type": "SYMBOL",
-            "name": "_blended_content"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_blended_content"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
           },
           {
             "type": "CHOICE",
@@ -13913,8 +13921,25 @@
       }
     },
     "razor_case_condition": {
-      "type": "PATTERN",
-      "value": "[^:]+"
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "pattern"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "when_clause"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        }
+      ]
     },
     "_razor_for_initializer": {
       "type": "SEQ",
@@ -14382,8 +14407,15 @@
                   "value": "attributes"
                 },
                 {
-                  "type": "STRING",
-                  "value": "bind"
+                  "type": "TOKEN",
+                  "content": {
+                    "type": "PREC",
+                    "value": 10,
+                    "content": {
+                      "type": "PATTERN",
+                      "value": "bind(-[A-Za-z_][A-Za-z0-9_]*)?"
+                    }
+                  }
                 },
                 {
                   "type": "STRING",
@@ -14408,6 +14440,10 @@
                 {
                   "type": "STRING",
                   "value": "ref"
+                },
+                {
+                  "type": "STRING",
+                  "value": "rendermode"
                 }
               ]
             },
@@ -14441,6 +14477,26 @@
         {
           "type": "STRING",
           "value": ":stopPropagation"
+        },
+        {
+          "type": "STRING",
+          "value": ":event"
+        },
+        {
+          "type": "STRING",
+          "value": ":format"
+        },
+        {
+          "type": "STRING",
+          "value": ":after"
+        },
+        {
+          "type": "STRING",
+          "value": ":get"
+        },
+        {
+          "type": "STRING",
+          "value": ":set"
         }
       ]
     },

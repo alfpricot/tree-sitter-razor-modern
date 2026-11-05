@@ -396,12 +396,16 @@ export default grammar(CSHARP, {
     razor_condition: ($) => prec(10, seq('(', $.expression, ')')),
 
     razor_switch_case: ($) =>
-      prec.left(seq('case', $.razor_case_condition, ':', $._blended_content, optional('break;'))),
+      prec.left(
+        seq('case', $.razor_case_condition, ':', optional($._blended_content), optional('break;')),
+      ),
 
     razor_switch_default: ($) =>
       prec.right(seq('default', ':', $._blended_content, optional('break;'))),
 
-    razor_case_condition: (_) => /[^:]+/,
+    // A case label is a C# pattern with an optional `when` clause. A label with no body of its own
+    // (`case 1:` directly followed by `case 2:`) shares the body of the label after it.
+    razor_case_condition: ($) => seq($.pattern, optional($.when_clause)),
 
     _razor_for_initializer: ($) =>
       seq(
@@ -476,12 +480,31 @@ export default grammar(CSHARP, {
       seq(
         $._razor_marker,
         seq(
-          choice('attributes', 'bind', 'formname', token(prec(10, /on[a-z]+/i)), 'key', 'ref'),
+          choice(
+            'attributes',
+            // `@bind`, and `@bind-Value` for a bound component parameter.
+            token(prec(10, /bind(-[A-Za-z_][A-Za-z0-9_]*)?/)),
+            'formname',
+            token(prec(10, /on[a-z]+/i)),
+            'key',
+            'ref',
+            'rendermode',
+          ),
           optional($.razor_attribute_modifier),
         ),
       ),
 
-    razor_attribute_modifier: (_) => choice(':culture', ':preventDefault', ':stopPropagation'),
+    razor_attribute_modifier: (_) =>
+      choice(
+        ':culture',
+        ':preventDefault',
+        ':stopPropagation',
+        ':event',
+        ':format',
+        ':after',
+        ':get',
+        ':set',
+      ),
 
     // Ends at the first `-->`; a lone `->` or `--` inside the comment does not close it.
     html_comment: (_) => token(seq('<!--', /([^-]|-[^-]|--+[^->])*-{2,}/, '>')),

@@ -5969,6 +5969,25 @@
     }
   },
   {
+    "type": "razor_case_condition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "pattern",
+          "named": true
+        },
+        {
+          "type": "when_clause",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "razor_catch",
     "named": true,
     "fields": {},
@@ -9312,11 +9331,31 @@
     "named": false
   },
   {
+    "type": ":after",
+    "named": false
+  },
+  {
     "type": ":culture",
     "named": false
   },
   {
+    "type": ":event",
+    "named": false
+  },
+  {
+    "type": ":format",
+    "named": false
+  },
+  {
+    "type": ":get",
+    "named": false
+  },
+  {
     "type": ":preventDefault",
+    "named": false
+  },
+  {
+    "type": ":set",
     "named": false
   },
   {
@@ -9513,10 +9552,6 @@
   },
   {
     "type": "base",
-    "named": false
-  },
-  {
-    "type": "bind",
     "named": false
   },
   {
@@ -9857,10 +9892,6 @@
     "named": true
   },
   {
-    "type": "razor_case_condition",
-    "named": true
-  },
-  {
     "type": "razor_comment",
     "named": true,
     "extra": true
@@ -9883,6 +9914,10 @@
   },
   {
     "type": "remove",
+    "named": false
+  },
+  {
+    "type": "rendermode",
     "named": false
   },
   {

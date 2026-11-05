@@ -206,7 +206,10 @@ Switch with cases and default
         (identifier)
         (identifier)))
     (razor_switch_case
-      (razor_case_condition)
+      (razor_case_condition
+        (constant_pattern
+          (string_literal
+            (string_literal_content))))
       (element))
     (razor_switch_default
       (element))))
