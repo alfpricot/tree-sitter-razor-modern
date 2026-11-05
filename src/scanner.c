@@ -122,7 +122,7 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
 // must begin exactly where the previous one ended, so no whitespace is skipped, and a `.` or `?`
 // only counts when what follows shows it belongs to the expression: `@a. b`, `@a.@b`, and
 // `@a? b` end the expression and leave the punctuation to the surrounding text.
-static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols) {
+static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols, bool *consumed) {
     int32_t c = lexer->lookahead;
 
     if (c == '(' && valid_symbols[IMPLICIT_PAREN]) {
@@ -139,6 +139,7 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
 
     if (c == '.' && valid_symbols[IMPLICIT_DOT]) {
         advance(lexer);
+        *consumed = true;
         lexer->mark_end(lexer);
         if (lexer->lookahead == '_' || iswalpha(lexer->lookahead)) {
             lexer->result_symbol = IMPLICIT_DOT;
@@ -151,6 +152,7 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
         // `?.` followed by a name continues the expression; the `?` is the token and the `.`
         // is left for the next one. A lone `?` is text.
         advance(lexer);
+        *consumed = true;
         lexer->mark_end(lexer);
         if (lexer->lookahead != '.') {
             return false;
@@ -170,9 +172,10 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
 // matching end tag (`</script` or `</style`, any case, followed by whitespace, `/` or `>`), or a
 // Razor `@` transition, which the grammar parses as code. An `@` between two letters or digits is
 // part of the text (an email address), the same as in markup text. The token is left out when
-// there is no content before the stopping point.
-static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol) {
-    bool has_content = false;
+// there is no content before the stopping point. `consumed` says that a failed continuation scan
+// already read characters, which then belong to the token as content.
+static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol, bool consumed) {
+    bool has_content = consumed;
     int32_t previous = 0;
     lexer->mark_end(lexer);
     while (lexer->lookahead != 0) {
@@ -235,6 +238,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     uint8_t brace_advanced = 0;
     uint8_t quote_count = 0;
     bool did_advance = false;
+    bool consumed = false;
 
     // error recovery, gives better trees this way
     if (valid_symbols[OPT_SEMI] && valid_symbols[INTERPOLATION_REGULAR_START]) {
@@ -245,7 +249,7 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
         valid_symbols[IMPLICIT_BRACKET] || valid_symbols[IMPLICIT_QUESTION]) {
         // After an implicit expression inside a script or style element, the text that follows
         // it is raw text, so a failed continuation falls through to the raw text scan.
-        if (scan_implicit_continuation(lexer, valid_symbols)) {
+        if (scan_implicit_continuation(lexer, valid_symbols, &consumed)) {
             return true;
         }
         if (!valid_symbols[RAW_SCRIPT_TEXT] && !valid_symbols[RAW_STYLE_TEXT]) {
@@ -254,11 +258,11 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     }
 
     if (valid_symbols[RAW_SCRIPT_TEXT]) {
-        return scan_raw_text(lexer, "script", RAW_SCRIPT_TEXT);
+        return scan_raw_text(lexer, "script", RAW_SCRIPT_TEXT, consumed);
     }
 
     if (valid_symbols[RAW_STYLE_TEXT]) {
-        return scan_raw_text(lexer, "style", RAW_STYLE_TEXT);
+        return scan_raw_text(lexer, "style", RAW_STYLE_TEXT, consumed);
     }
 
     if (valid_symbols[OPT_SEMI]) {

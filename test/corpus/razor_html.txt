@@ -257,3 +257,22 @@ An escaped at sign inside attribute values
 (compilation_unit
   (element
     (attribute_value_unquoted)))
+
+===
+A failed continuation inside script keeps its characters as raw text
+===
+<script>var u = "@a?@b"; var f = @a.@b; var g = @c?</script>
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))))

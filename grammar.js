@@ -130,8 +130,6 @@ export default grammar(CSHARP, {
         optional(seq(choice($._node, $._html_text_start), bodyRest($))),
       ),
 
-    _body_rest: ($) => seq(repeat(choice($._node, $._html_text)), optional($._late_directive)),
-
     // `@using` and `@inject` may also appear after the first node. Text directly after one of
     // them has to start with a letter or digit, for the same reason as the first text run: a
     // text run starting with `.` would otherwise take the rest of a dotted name.
