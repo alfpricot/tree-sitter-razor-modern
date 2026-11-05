@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { readFileSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const MARKER = /^\/\/ Upstream: tree-sitter-c-sharp (\d+\.\d+\.\d+)$/m;
 
@@ -42,7 +42,12 @@ export function scannerDrift(ours, upstream, upstreamVersion) {
   return problems;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+// Compare real paths: import.meta.url is already resolved, argv[1] is not, so a symlinked
+// invocation would otherwise skip the body and exit 0 without checking anything.
+if (
+  process.argv[1] !== undefined &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
+) {
   const upstreamDir = 'node_modules/tree-sitter-c-sharp';
   const { version } = JSON.parse(readFileSync(`${upstreamDir}/package.json`, 'utf8'));
   const problems = scannerDrift(
