@@ -226,3 +226,36 @@ A Razor expression after a double slash in an element is still parsed
       (member_access_expression
         expression: (identifier)
         name: (identifier)))))
+
+==================
+A void element may have an explicit end tag
+==================
+
+<p><input type="text"></input><br></br><img src="x"></p>
+<p>a<br>b</p>
+
+---
+
+(compilation_unit
+  (element
+    (element)
+    (element)
+    (element))
+  (element
+    (element)))
+
+==================
+An HTML comment may close in the abrupt forms
+==================
+
+<!---> <p>x</p> <!--> <!----> <!--x---> <!-- a -> b -- c -->
+
+---
+
+(compilation_unit
+  (html_comment)
+  (element)
+  (html_comment)
+  (html_comment)
+  (html_comment)
+  (html_comment))

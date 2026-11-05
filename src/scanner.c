@@ -7,6 +7,7 @@
 #include "tree_sitter/array.h"
 #include "tree_sitter/parser.h"
 
+#include <ctype.h>
 #include <wctype.h>
 
 enum TokenType {
@@ -28,6 +29,7 @@ enum TokenType {
     IMPLICIT_QUESTION,
     RAW_SCRIPT_TEXT,
     RAW_STYLE_TEXT,
+    RAZOR_EVENT_NAME,
 };
 
 typedef enum {
@@ -232,6 +234,31 @@ static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol
     return true;
 }
 
+// Scans the name of a directive event attribute (`@onclick`, `@onsubmit:preventDefault`): `on`
+// and letters. It is a name only when `=` or `:` follows, so `@onlineStatus` in an attribute
+// position stays an expression; the name ends before that character.
+static bool scan_event_name(TSLexer *lexer) {
+    if (towlower(lexer->lookahead) != 'o') {
+        return false;
+    }
+    advance(lexer);
+    if (towlower(lexer->lookahead) != 'n') {
+        return false;
+    }
+    advance(lexer);
+    int letters = 0;
+    while (lexer->lookahead < 128 && isalpha(lexer->lookahead)) {
+        advance(lexer);
+        letters++;
+    }
+    lexer->mark_end(lexer);
+    if (letters == 0 || (lexer->lookahead != '=' && lexer->lookahead != ':')) {
+        return false;
+    }
+    lexer->result_symbol = RAZOR_EVENT_NAME;
+    return true;
+}
+
 bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
 
@@ -243,6 +270,10 @@ bool tree_sitter_razor_external_scanner_scan(void *payload, TSLexer *lexer, cons
     // error recovery, gives better trees this way
     if (valid_symbols[OPT_SEMI] && valid_symbols[INTERPOLATION_REGULAR_START]) {
         return false;
+    }
+
+    if (valid_symbols[RAZOR_EVENT_NAME]) {
+        return scan_event_name(lexer);
     }
 
     if (valid_symbols[IMPLICIT_DOT] || valid_symbols[IMPLICIT_PAREN] ||

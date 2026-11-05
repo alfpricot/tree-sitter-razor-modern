@@ -276,3 +276,23 @@ A failed continuation inside script keeps its characters as raw text
       (identifier))
     (razor_implicit_expression
       (identifier))))
+
+===
+A name that starts with on is an event attribute only when a value or modifier follows
+===
+<div @onclick="Save" @onsubmit:preventDefault @onlineStatus @onlyIf class="x"></div>
+---
+
+(compilation_unit
+  (element
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (identifier)))
+    (razor_html_attribute
+      (razor_attribute_name
+        (razor_attribute_modifier)))
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier))))
