@@ -398,3 +398,105 @@ tagHelperPrefix
       (string_literal_content)))
   (razor_taghelperprefix_directive
     (identifier)))
+
+===
+Namespace, type parameter constraints, and qualified render mode
+===
+@namespace MyApp
+@typeparam TItem where TItem : notnull
+@typeparam T where T : class, new()
+@rendermode RenderMode.InteractiveServer
+<p>x</p>
+---
+
+(compilation_unit
+  (razor_namespace_directive
+    (identifier))
+  (razor_typeparam_directive
+    name: (identifier)
+    (type_parameter_constraints_clause
+      (identifier)
+      (type_parameter_constraint)))
+  (razor_typeparam_directive
+    name: (identifier)
+    (type_parameter_constraints_clause
+      (identifier)
+      (type_parameter_constraint)
+      (type_parameter_constraint
+        (constructor_constraint))))
+  (razor_rendermode_directive
+    (qualified_name
+      qualifier: (identifier)
+      name: (identifier)))
+  (element))
+
+===
+Render mode as an explicit expression
+===
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+---
+
+(compilation_unit
+  (razor_rendermode_directive
+    (razor_explicit_expression
+      (parenthesized_expression
+        (object_creation_expression
+          type: (identifier)
+          arguments: (argument_list
+            (argument
+              name: (identifier)
+              (boolean_literal))))))))
+
+===
+Text directly after a directive
+===
+@model Foo
+Dear @Model.Name,
+<p>x</p>
+---
+
+(compilation_unit
+  (razor_model_directive
+    name: (identifier))
+  (razor_implicit_expression
+    (member_access_expression
+      expression: (identifier)
+      name: (identifier)))
+  (element))
+
+===
+Text at the start of the file and after a page directive
+===
+Dear @Model.Name,
+<p>x</p>
+---
+
+(compilation_unit
+  (razor_implicit_expression
+    (member_access_expression
+      expression: (identifier)
+      name: (identifier)))
+  (element))
+
+===
+Text after a page directive without a route
+===
+@page
+Welcome home
+---
+
+(compilation_unit
+  (razor_page_directive))
+
+===
+An address with a one-letter name starts the text after a directive
+===
+@model Foo
+x@example.com wrote:
+<p>x</p>
+---
+
+(compilation_unit
+  (razor_model_directive
+    name: (identifier))
+  (element))

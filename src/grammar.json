@@ -86,8 +86,17 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "SYMBOL",
-                  "name": "_node"
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "_node"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "_html_text_start"
+                    }
+                  ]
                 },
                 {
                   "type": "REPEAT",
@@ -12581,6 +12590,67 @@
             "type": "SYMBOL",
             "name": "_name"
           }
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_typeparam_constraints_clause"
+            },
+            "named": true,
+            "value": "type_parameter_constraints_clause"
+          }
+        }
+      ]
+    },
+    "_typeparam_constraints_clause": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "TOKEN",
+          "content": {
+            "type": "PREC",
+            "value": 3,
+            "content": {
+              "type": "STRING",
+              "value": "where"
+            }
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "STRING",
+          "value": ":"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "type_parameter_constraint"
+            },
+            {
+              "type": "REPEAT",
+              "content": {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": ","
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "type_parameter_constraint"
+                  }
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -12634,7 +12704,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "qualified_name"
+          "name": "_name"
         }
       ]
     },
@@ -12660,8 +12730,21 @@
           "value": "at_rendermode"
         },
         {
-          "type": "SYMBOL",
-          "name": "razor_rendermode"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "razor_rendermode"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_name"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "razor_explicit_expression"
+            }
+          ]
         }
       ]
     },
@@ -14573,6 +14656,10 @@
     "_html_text": {
       "type": "PATTERN",
       "value": "([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])(([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}]))?"
+    },
+    "_html_text_start": {
+      "type": "PATTERN",
+      "value": "([\\p{L}\\p{N}]@[\\p{L}\\p{N}]|[\\p{L}\\p{N}])(([^<@\\r\\n]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}])*([^<@\\s]|[\\p{L}\\p{N}]@[\\p{L}\\p{N}]))?"
     },
     "_html_slash_text": {
       "type": "TOKEN",
