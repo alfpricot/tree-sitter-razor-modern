@@ -121,12 +121,39 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
     assert(size == length);
 }
 
+// Moves past a string or char literal whose opening quote is the lookahead, honoring backslash
+// escapes. Reports false when the line ends before the closing quote.
+static bool skip_quoted(TSLexer *lexer) {
+    int32_t quote = lexer->lookahead;
+    advance(lexer);
+    while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+        if (lexer->lookahead == '\\') {
+            advance(lexer);
+            if (lexer->lookahead == 0 || lexer->lookahead == '\n' || lexer->lookahead == '\r') {
+                return false;
+            }
+        } else if (lexer->lookahead == quote) {
+            advance(lexer);
+            return true;
+        }
+        advance(lexer);
+    }
+    return false;
+}
+
 // After the `[` of a possible index, reports whether a matching `]` closes it on the same line, so
-// prose such as `@name[` or `@name?[` with no closing bracket stays text. The scan only moves the
-// lexer's lookahead; the caller has already marked the end of its token.
+// prose such as `@name[` or `@name?[` with no closing bracket stays text. Brackets inside string
+// and char literals do not count. The scan only moves the lexer's lookahead; the caller has
+// already marked the end of its token.
 static bool index_is_closed(TSLexer *lexer) {
     int depth = 1;
     while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+        if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
+            if (!skip_quoted(lexer)) {
+                return false;
+            }
+            continue;
+        }
         if (lexer->lookahead == '[') {
             depth++;
         } else if (lexer->lookahead == ']' && --depth == 0) {
@@ -147,6 +174,10 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
     // lexer's position, so the closing-bracket lookahead (which reads on to the end of the line)
     // would swallow an end tag; the index is accepted there as before.
     bool in_raw_text = valid_symbols[RAW_SCRIPT_TEXT] || valid_symbols[RAW_STYLE_TEXT];
+    // Right after a `?` only `.` and `[` can continue the expression, and the `?` token already
+    // ran the closing-bracket check (or skipped it inside raw text), so that `[` is not checked
+    // again: a second check there would reject an index the exemption above accepted.
+    bool after_question = !valid_symbols[IMPLICIT_PAREN];
 
     if (c == '(' && valid_symbols[IMPLICIT_PAREN]) {
         advance(lexer);
@@ -158,7 +189,7 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
         advance(lexer);
         lexer->mark_end(lexer);
         *consumed = true;
-        if (!in_raw_text && !index_is_closed(lexer)) {
+        if (!in_raw_text && !after_question && !index_is_closed(lexer)) {
             return false;
         }
         lexer->result_symbol = IMPLICIT_BRACKET;
@@ -311,9 +342,9 @@ static bool is_name_start(int32_t c) { return c == '_' || c == '@' || iswalpha(c
 static bool is_name_part(int32_t c) { return c == '_' || iswalnum(c) || c >= 128; }
 
 // Moves past blanks and same-line block comments (`where /* c */ T : class`), reporting whether
-// at least one was found. A comment that is not closed on the line ends the scan with `false` and
-// the lookahead left inside it, which no caller then matches.
-static bool skip_blanks_and_comments(TSLexer *lexer) {
+// at least one was found. A `/` that does not start a comment, or a comment that is not closed on
+// the line, sets `*malformed`: the lookahead is then left inside it and the caller must reject.
+static bool skip_blanks_and_comments(TSLexer *lexer, bool *malformed) {
     bool found = false;
     for (;;) {
         if (is_blank(lexer->lookahead)) {
@@ -326,6 +357,7 @@ static bool skip_blanks_and_comments(TSLexer *lexer) {
         }
         advance(lexer);
         if (lexer->lookahead != '*') {
+            *malformed = true;
             return false;
         }
         advance(lexer);
@@ -338,6 +370,7 @@ static bool skip_blanks_and_comments(TSLexer *lexer) {
             advance(lexer);
         }
         if (lexer->lookahead != '/') {
+            *malformed = true;
             return false;
         }
         advance(lexer);
@@ -387,7 +420,8 @@ static bool scan_typeparam_where(TSLexer *lexer) {
         advance(lexer);
     }
     lexer->mark_end(lexer);
-    if (!skip_blanks_and_comments(lexer)) {
+    bool malformed = false;
+    if (!skip_blanks_and_comments(lexer, &malformed) || malformed) {
         return false;
     }
     if (lexer->lookahead == '\\') {
@@ -410,8 +444,8 @@ static bool scan_typeparam_where(TSLexer *lexer) {
             break;
         }
     }
-    skip_blanks_and_comments(lexer);
-    if (lexer->lookahead != ':') {
+    skip_blanks_and_comments(lexer, &malformed);
+    if (malformed || lexer->lookahead != ':') {
         return false;
     }
     lexer->result_symbol = TYPEPARAM_WHERE;

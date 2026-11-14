@@ -588,3 +588,15 @@ A constraint clause with a comment or an escape in it
     (type_parameter_constraints_clause
       (identifier)
       (type_parameter_constraint))))
+
+==================
+A stray slash before the colon is not a constraint clause
+==================
+
+@typeparam T where T /: class
+
+---
+
+(compilation_unit
+  (razor_typeparam_directive
+    (identifier)))
