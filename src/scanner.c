@@ -121,12 +121,21 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
     assert(size == length);
 }
 
+// The most characters the closing-bracket lookahead reads before it gives up and treats the
+// bracket as unclosed, so a long line of unclosed brackets costs a bounded amount per bracket
+// instead of the rest of the line each time.
+#define INDEX_LOOKAHEAD_LIMIT 4096
+
 // Moves past a string or char literal whose opening quote is the lookahead, honoring backslash
-// escapes. Reports false when the line ends before the closing quote.
-static bool skip_quoted(TSLexer *lexer) {
+// escapes and counting the characters read in `*budget`. Reports false when the line ends or the
+// budget runs out before the closing quote.
+static bool skip_quoted(TSLexer *lexer, int *budget) {
     int32_t quote = lexer->lookahead;
     advance(lexer);
     while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+        if (--*budget < 0) {
+            return false;
+        }
         if (lexer->lookahead == '\\') {
             advance(lexer);
             if (lexer->lookahead == 0 || lexer->lookahead == '\n' || lexer->lookahead == '\r') {
@@ -141,15 +150,19 @@ static bool skip_quoted(TSLexer *lexer) {
     return false;
 }
 
-// After the `[` of a possible index, reports whether a matching `]` closes it on the same line, so
-// prose such as `@name[` or `@name?[` with no closing bracket stays text. Brackets inside string
-// and char literals do not count. The scan only moves the lexer's lookahead; the caller has
-// already marked the end of its token.
+// After the `[` of a possible index, reports whether a matching `]` closes it on the same line
+// within INDEX_LOOKAHEAD_LIMIT characters, so prose such as `@name[` or `@name?[` with no closing
+// bracket stays text. Brackets inside string and char literals do not count. The scan only moves
+// the lexer's lookahead; the caller has already marked the end of its token.
 static bool index_is_closed(TSLexer *lexer) {
     int depth = 1;
+    int budget = INDEX_LOOKAHEAD_LIMIT;
     while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+        if (--budget < 0) {
+            return false;
+        }
         if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
-            if (!skip_quoted(lexer)) {
+            if (!skip_quoted(lexer, &budget)) {
                 return false;
             }
             continue;
@@ -301,8 +314,9 @@ static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol
 
 // Scans the name of a directive event attribute (`@onclick`, `@onsubmit:preventDefault`): `on`
 // and letters. It is a name only when `=` or `:` follows, so `@onlineStatus` in an attribute
-// position stays an expression; the name ends before that character. Blanks may sit between the
-// name and the `=`, as HTML allows around an attribute's equals sign.
+// position stays an expression; the name ends before that character. Whitespace, line breaks
+// included, may sit between the name and the `=`, as HTML allows around an attribute's equals
+// sign.
 static bool is_blank(int32_t c);
 
 static bool scan_event_name(TSLexer *lexer) {
@@ -324,7 +338,7 @@ static bool scan_event_name(TSLexer *lexer) {
         return false;
     }
     if (lexer->lookahead != ':') {
-        while (is_blank(lexer->lookahead)) {
+        while (is_blank(lexer->lookahead) || lexer->lookahead == '\n' || lexer->lookahead == '\r') {
             advance(lexer);
         }
         if (lexer->lookahead != '=') {

@@ -292,3 +292,25 @@ Spaces around the equals sign of an attribute
       (razor_attribute_name)
       (razor_attribute_value
         (identifier)))))
+
+==================
+A line break between an event name and the equals sign
+==================
+
+<button @onclick
+        = "Go" @onsubmit:preventDefault
+        ="Save">y</button>
+
+---
+
+(compilation_unit
+  (element
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (identifier)))
+    (razor_html_attribute
+      (razor_attribute_name
+        (razor_attribute_modifier))
+      (razor_attribute_value
+        (identifier)))))
