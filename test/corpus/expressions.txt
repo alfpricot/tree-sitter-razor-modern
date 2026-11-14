@@ -263,3 +263,86 @@ Implicit Razor Expression With Null-conditional Index
         condition: (identifier)
         (member_binding_expression
           name: (identifier))))))
+
+==================
+An unclosed bracket after an implicit expression is text
+==================
+
+<p>@name?[ and @other[ stay text</p>
+<p>@items[0] @items?[1]</p>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (identifier))
+    (razor_implicit_expression
+      (identifier)))
+  (element
+    (razor_implicit_expression
+      (element_access_expression
+        (identifier)
+        (bracketed_argument_list
+          (argument
+            (integer_literal)))))
+    (razor_implicit_expression
+      (conditional_access_expression
+        (identifier)
+        (element_binding_expression
+          (argument
+            (integer_literal)))))))
+
+==================
+Brackets inside a string or char literal in an index
+==================
+
+<p>@map["["]</p>
+<p>@map['[']</p>
+<p>@items?["]x"]</p>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (element_access_expression
+        (identifier)
+        (bracketed_argument_list
+          (argument
+            (string_literal
+              (string_literal_content)))))))
+  (element
+    (razor_implicit_expression
+      (element_access_expression
+        (identifier)
+        (bracketed_argument_list
+          (argument
+            (character_literal
+              (character_literal_content)))))))
+  (element
+    (razor_implicit_expression
+      (conditional_access_expression
+        (identifier)
+        (element_binding_expression
+          (argument
+            (string_literal
+              (string_literal_content))))))))
+
+==================
+An index split across lines after a null-conditional inside a script
+==================
+
+<script>var v = @a?[
+0];</script>
+
+---
+
+(compilation_unit
+  (element
+    (razor_implicit_expression
+      (conditional_access_expression
+        (identifier)
+        (element_binding_expression
+          (argument
+            (integer_literal)))))))

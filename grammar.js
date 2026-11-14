@@ -39,7 +39,6 @@ function elementAttributes($) {
           $.razor_explicit_expression,
           $.razor_implicit_expression,
         ),
-        optional(' '),
       ),
     ),
   );
@@ -325,9 +324,9 @@ export default grammar(CSHARP, {
         field('name', $._implicit_member_name),
       ),
 
-    // `@a?.b` and `@a?[0]`: the `?` is scanned only when a `.` and a name, or a `[`, follow it
-    // directly. Razor does not
-    // allow generic type arguments in an implicit expression, so `@a<b>(c)` leaves `<b>` as a tag.
+    // `@a?.b` and `@a?[0]`: the `?` is scanned only when a `.` and a name follow it directly, or
+    // a `[` that a `]` closes on the same line (outside script and style). Razor does not allow
+    // generic type arguments in an implicit expression, so `@a<b>(c)` leaves `<b>` as a tag.
     _implicit_member_binding: ($) =>
       seq(alias($._implicit_dot, '.'), field('name', $._implicit_member_name)),
 
@@ -517,8 +516,8 @@ export default grammar(CSHARP, {
             // longer identifier such as `@bindings` is still read whole as an expression.
             token(prec(10, /bind-[A-Za-z_][A-Za-z0-9_]*/)),
             'formname',
-            // `@onclick` and the other event names: the scanner emits this only when `=` or `:` follows
-            // the name, so an expression such as `@onlineStatus` is still read as an expression.
+            // `@onclick` and the other event names: the scanner emits this only when `=` (possibly
+            // after spaces or tabs) or `:` follows the name, so an expression such as `@onlineStatus` is still read as an expression.
             $._razor_event_name,
             'key',
             'ref',
@@ -540,16 +539,22 @@ export default grammar(CSHARP, {
         ':set',
       ),
 
-    // Ends at the first `-->`; a lone `->` or `--` inside the comment does not close it. The
-    // abrupt forms `<!-->` and `<!--->` also close at once, as in a browser, so the body of the
-    // longest alternative cannot start with `>` or `->`.
+    // Ends at the first `-->` or `--!>`; a lone `->` or `--` inside the comment does not close it.
+    // The abrupt forms `<!-->` and `<!--->` also close at once, as in a browser, so the body of
+    // the longest alternative cannot start with `>` or `->`. `--(-|!--)*` is the browser's
+    // comment-end state: any run of dashes, where a `!` followed by two more dashes returns to it,
+    // and the `!` followed by `>` closes. The body items below cannot cross a closing sequence,
+    // because the longest match would otherwise run on to a later `-->`.
     html_comment: (_) =>
       token(
         choice(
           '<!-->',
           '<!--->',
-          seq('<!--', /--+/, '>'),
-          seq('<!--', /-*[^->]([^-]|-[^-]|--+[^->])*--+/, '>'),
+          seq('<!--', /--(-|!--)*!?>/),
+          seq(
+            '<!--',
+            /(-?[^->-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))([^-]|-[^-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))*--(-|!--)*!?>/,
+          ),
         ),
       ),
 

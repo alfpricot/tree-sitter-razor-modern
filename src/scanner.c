@@ -121,12 +121,63 @@ void tree_sitter_razor_external_scanner_deserialize(void *payload, const char *b
     assert(size == length);
 }
 
+// Moves past a string or char literal whose opening quote is the lookahead, honoring backslash
+// escapes. Reports false when the line ends before the closing quote.
+static bool skip_quoted(TSLexer *lexer) {
+    int32_t quote = lexer->lookahead;
+    advance(lexer);
+    while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+        if (lexer->lookahead == '\\') {
+            advance(lexer);
+            if (lexer->lookahead == 0 || lexer->lookahead == '\n' || lexer->lookahead == '\r') {
+                return false;
+            }
+        } else if (lexer->lookahead == quote) {
+            advance(lexer);
+            return true;
+        }
+        advance(lexer);
+    }
+    return false;
+}
+
+// After the `[` of a possible index, reports whether a matching `]` closes it on the same line, so
+// prose such as `@name[` or `@name?[` with no closing bracket stays text. Brackets inside string
+// and char literals do not count. The scan only moves the lexer's lookahead; the caller has
+// already marked the end of its token.
+static bool index_is_closed(TSLexer *lexer) {
+    int depth = 1;
+    while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+        if (lexer->lookahead == '"' || lexer->lookahead == '\'') {
+            if (!skip_quoted(lexer)) {
+                return false;
+            }
+            continue;
+        }
+        if (lexer->lookahead == '[') {
+            depth++;
+        } else if (lexer->lookahead == ']' && --depth == 0) {
+            return true;
+        }
+        advance(lexer);
+    }
+    return false;
+}
+
 // Scans the continuation of a Razor implicit expression (`@a.b(c)[0]`, `@a?.b`). Each token
 // must begin exactly where the previous one ended, so no whitespace is skipped, and a `.` or `?`
 // only counts when what follows shows it belongs to the expression: `@a. b`, `@a.@b`, and
 // `@a? b` end the expression and leave the punctuation to the surrounding text.
 static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols, bool *consumed) {
     int32_t c = lexer->lookahead;
+    // Inside a script or style element a failed continuation resumes the raw text scan from the
+    // lexer's position, so the closing-bracket lookahead (which reads on to the end of the line)
+    // would swallow an end tag; the index is accepted there as before.
+    bool in_raw_text = valid_symbols[RAW_SCRIPT_TEXT] || valid_symbols[RAW_STYLE_TEXT];
+    // Right after a `?` only `.` and `[` can continue the expression, and the `?` token already
+    // ran the closing-bracket check (or skipped it inside raw text), so that `[` is not checked
+    // again: a second check there would reject an index the exemption above accepted.
+    bool after_question = !valid_symbols[IMPLICIT_PAREN];
 
     if (c == '(' && valid_symbols[IMPLICIT_PAREN]) {
         advance(lexer);
@@ -136,6 +187,11 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
 
     if (c == '[' && valid_symbols[IMPLICIT_BRACKET]) {
         advance(lexer);
+        lexer->mark_end(lexer);
+        *consumed = true;
+        if (!in_raw_text && !after_question && !index_is_closed(lexer)) {
+            return false;
+        }
         lexer->result_symbol = IMPLICIT_BRACKET;
         return true;
     }
@@ -158,6 +214,10 @@ static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols
         *consumed = true;
         lexer->mark_end(lexer);
         if (lexer->lookahead == '[') {
+            advance(lexer);
+            if (!in_raw_text && !index_is_closed(lexer)) {
+                return false;
+            }
             lexer->result_symbol = IMPLICIT_QUESTION;
             return true;
         }
@@ -241,7 +301,10 @@ static bool scan_raw_text(TSLexer *lexer, const char *tag, enum TokenType symbol
 
 // Scans the name of a directive event attribute (`@onclick`, `@onsubmit:preventDefault`): `on`
 // and letters. It is a name only when `=` or `:` follows, so `@onlineStatus` in an attribute
-// position stays an expression; the name ends before that character.
+// position stays an expression; the name ends before that character. Blanks may sit between the
+// name and the `=`, as HTML allows around an attribute's equals sign.
+static bool is_blank(int32_t c);
+
 static bool scan_event_name(TSLexer *lexer) {
     if (towlower(lexer->lookahead) != 'o') {
         return false;
@@ -257,8 +320,16 @@ static bool scan_event_name(TSLexer *lexer) {
         letters++;
     }
     lexer->mark_end(lexer);
-    if (letters == 0 || (lexer->lookahead != '=' && lexer->lookahead != ':')) {
+    if (letters == 0) {
         return false;
+    }
+    if (lexer->lookahead != ':') {
+        while (is_blank(lexer->lookahead)) {
+            advance(lexer);
+        }
+        if (lexer->lookahead != '=') {
+            return false;
+        }
     }
     lexer->result_symbol = RAZOR_EVENT_NAME;
     return true;
@@ -270,9 +341,72 @@ static bool is_name_start(int32_t c) { return c == '_' || c == '@' || iswalpha(c
 
 static bool is_name_part(int32_t c) { return c == '_' || iswalnum(c) || c >= 128; }
 
+// Moves past blanks and same-line block comments (`where /* c */ T : class`), reporting whether
+// at least one was found. A `/` that does not start a comment, or a comment that is not closed on
+// the line, sets `*malformed`: the lookahead is then left inside it and the caller must reject.
+static bool skip_blanks_and_comments(TSLexer *lexer, bool *malformed) {
+    bool found = false;
+    for (;;) {
+        if (is_blank(lexer->lookahead)) {
+            found = true;
+            advance(lexer);
+            continue;
+        }
+        if (lexer->lookahead != '/') {
+            return found;
+        }
+        advance(lexer);
+        if (lexer->lookahead != '*') {
+            *malformed = true;
+            return false;
+        }
+        advance(lexer);
+        bool star = false;
+        while (lexer->lookahead != 0 && lexer->lookahead != '\n' && lexer->lookahead != '\r') {
+            if (star && lexer->lookahead == '/') {
+                break;
+            }
+            star = lexer->lookahead == '*';
+            advance(lexer);
+        }
+        if (lexer->lookahead != '/') {
+            *malformed = true;
+            return false;
+        }
+        advance(lexer);
+        found = true;
+    }
+}
+
+static bool is_hex_digit(int32_t c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// Moves past a `\uXXXX` or `\UXXXXXXXX` escape inside a name; the lookahead is on the backslash.
+static bool skip_unicode_escape(TSLexer *lexer) {
+    advance(lexer);
+    int digits;
+    if (lexer->lookahead == 'u') {
+        digits = 4;
+    } else if (lexer->lookahead == 'U') {
+        digits = 8;
+    } else {
+        return false;
+    }
+    advance(lexer);
+    for (int i = 0; i < digits; i++) {
+        if (!is_hex_digit(lexer->lookahead)) {
+            return false;
+        }
+        advance(lexer);
+    }
+    return true;
+}
+
 // Scans the `where` keyword of a type parameter constraint clause. It is the keyword only when a
 // name and a colon follow on the same line (`where TItem : class`), as a directive ends at its line
-// break, so a line of text that starts with the word `where` is not mistaken for it. The token
+// break, so a line of text that starts with the word `where` is not mistaken for it. Same-line
+// block comments may sit between the parts, and the name may hold `\uXXXX` escapes. The token
 // ends after the keyword.
 static bool scan_typeparam_where(TSLexer *lexer) {
     while (is_blank(lexer->lookahead)) {
@@ -286,23 +420,32 @@ static bool scan_typeparam_where(TSLexer *lexer) {
         advance(lexer);
     }
     lexer->mark_end(lexer);
-    if (!is_blank(lexer->lookahead)) {
+    bool malformed = false;
+    if (!skip_blanks_and_comments(lexer, &malformed) || malformed) {
         return false;
     }
-    while (is_blank(lexer->lookahead)) {
+    if (lexer->lookahead == '\\') {
+        if (!skip_unicode_escape(lexer)) {
+            return false;
+        }
+    } else if (is_name_start(lexer->lookahead)) {
         advance(lexer);
-    }
-    if (!is_name_start(lexer->lookahead)) {
+    } else {
         return false;
     }
-    advance(lexer);
-    while (is_name_part(lexer->lookahead)) {
-        advance(lexer);
+    for (;;) {
+        if (lexer->lookahead == '\\') {
+            if (!skip_unicode_escape(lexer)) {
+                return false;
+            }
+        } else if (is_name_part(lexer->lookahead)) {
+            advance(lexer);
+        } else {
+            break;
+        }
     }
-    while (is_blank(lexer->lookahead)) {
-        advance(lexer);
-    }
-    if (lexer->lookahead != ':') {
+    skip_blanks_and_comments(lexer, &malformed);
+    if (malformed || lexer->lookahead != ':') {
         return false;
     }
     lexer->result_symbol = TYPEPARAM_WHERE;
