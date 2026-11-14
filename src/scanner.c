@@ -141,6 +141,10 @@ static bool skip_quoted(TSLexer *lexer, int *budget) {
             if (lexer->lookahead == 0 || lexer->lookahead == '\n' || lexer->lookahead == '\r') {
                 return false;
             }
+            // The escaped character is read too, so it costs a unit of its own.
+            if (--*budget < 0) {
+                return false;
+            }
         } else if (lexer->lookahead == quote) {
             advance(lexer);
             return true;
@@ -184,8 +188,9 @@ static bool index_is_closed(TSLexer *lexer) {
 static bool scan_implicit_continuation(TSLexer *lexer, const bool *valid_symbols, bool *consumed) {
     int32_t c = lexer->lookahead;
     // Inside a script or style element a failed continuation resumes the raw text scan from the
-    // lexer's position, so the closing-bracket lookahead (which reads on to the end of the line)
-    // would swallow an end tag; the index is accepted there as before.
+    // lexer's position, so the closing-bracket lookahead (which reads on to the end of the line,
+    // or to INDEX_LOOKAHEAD_LIMIT characters) would swallow an end tag; the index is accepted
+    // there as before.
     bool in_raw_text = valid_symbols[RAW_SCRIPT_TEXT] || valid_symbols[RAW_STYLE_TEXT];
     // Right after a `?` only `.` and `[` can continue the expression, and the `?` token already
     // ran the closing-bracket check (or skipped it inside raw text), so that `[` is not checked
