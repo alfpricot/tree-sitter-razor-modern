@@ -21,7 +21,7 @@
     }
   ],
   "metadata": {
-    "version": "0.1.2",
+    "version": "1.0.0",
     "license": "MIT",
     "description": "Tree-sitter grammar for ASP.NET Core Razor markup (.cshtml and .razor)",
     "authors": [
