@@ -39,7 +39,6 @@ function elementAttributes($) {
           $.razor_explicit_expression,
           $.razor_implicit_expression,
         ),
-        optional(' '),
       ),
     ),
   );
@@ -540,16 +539,22 @@ export default grammar(CSHARP, {
         ':set',
       ),
 
-    // Ends at the first `-->`; a lone `->` or `--` inside the comment does not close it. The
-    // abrupt forms `<!-->` and `<!--->` also close at once, as in a browser, so the body of the
-    // longest alternative cannot start with `>` or `->`.
+    // Ends at the first `-->` or `--!>`; a lone `->` or `--` inside the comment does not close it.
+    // The abrupt forms `<!-->` and `<!--->` also close at once, as in a browser, so the body of
+    // the longest alternative cannot start with `>` or `->`. `--(-|!--)*` is the browser's
+    // comment-end state: any run of dashes, where a `!` followed by two more dashes returns to it,
+    // and the `!` followed by `>` closes. The body items below cannot cross a closing sequence,
+    // because the longest match would otherwise run on to a later `-->`.
     html_comment: (_) =>
       token(
         choice(
           '<!-->',
           '<!--->',
-          seq('<!--', /--+/, '>'),
-          seq('<!--', /-*[^->]([^-]|-[^-]|--+[^->])*--+/, '>'),
+          seq('<!--', /--(-|!--)*!?>/),
+          seq(
+            '<!--',
+            /(-?[^->-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))([^-]|-[^-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))*--(-|!--)*!?>/,
+          ),
         ),
       ),
 

@@ -566,3 +566,25 @@ where possible: use the API
 (compilation_unit
   (razor_typeparam_directive
     name: (identifier)))
+
+==================
+A constraint clause with a comment or an escape in it
+==================
+
+@typeparam T where /* note */ T : class
+@typeparam U where \u0055 : struct
+
+---
+
+(compilation_unit
+  (razor_typeparam_directive
+    (identifier)
+    (type_parameter_constraints_clause
+      (comment)
+      (identifier)
+      (type_parameter_constraint)))
+  (razor_typeparam_directive
+    (identifier)
+    (type_parameter_constraints_clause
+      (identifier)
+      (type_parameter_constraint))))

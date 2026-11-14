@@ -259,3 +259,36 @@ An HTML comment may close in the abrupt forms
   (html_comment)
   (html_comment)
   (html_comment))
+
+==================
+An HTML comment closes at the incorrectly closed form
+==================
+
+<!-- a --!> <p>x</p> <!-- b --!--> <!-- c --!!> d -->
+
+---
+
+(compilation_unit
+  (html_comment)
+  (element)
+  (html_comment)
+  (html_comment))
+
+==================
+Spaces around the equals sign of an attribute
+==================
+
+<button @bind = "x" @onclick = "Go" class = "a">y</button>
+
+---
+
+(compilation_unit
+  (element
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (identifier)))
+    (razor_html_attribute
+      (razor_attribute_name)
+      (razor_attribute_value
+        (identifier)))))

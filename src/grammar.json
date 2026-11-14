@@ -14602,11 +14602,7 @@
               },
               {
                 "type": "PATTERN",
-                "value": "--+"
-              },
-              {
-                "type": "STRING",
-                "value": ">"
+                "value": "--(-|!--)*!?>"
               }
             ]
           },
@@ -14619,11 +14615,7 @@
               },
               {
                 "type": "PATTERN",
-                "value": "-*[^->]([^-]|-[^-]|--+[^->])*--+"
-              },
-              {
-                "type": "STRING",
-                "value": ">"
+                "value": "(-?[^->-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))([^-]|-[^-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))*--(-|!--)*!?>"
               }
             ]
           }
@@ -15007,18 +14999,6 @@
                           "name": "razor_implicit_expression"
                         }
                       ]
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": " "
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
                     }
                   ]
                 }
@@ -15093,18 +15073,6 @@
                         {
                           "type": "SYMBOL",
                           "name": "razor_implicit_expression"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": " "
-                        },
-                        {
-                          "type": "BLANK"
                         }
                       ]
                     }
@@ -15191,18 +15159,6 @@
                           "name": "razor_implicit_expression"
                         }
                       ]
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": " "
-                        },
-                        {
-                          "type": "BLANK"
-                        }
-                      ]
                     }
                   ]
                 }
@@ -15285,18 +15241,6 @@
                         {
                           "type": "SYMBOL",
                           "name": "razor_implicit_expression"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "CHOICE",
-                      "members": [
-                        {
-                          "type": "STRING",
-                          "value": " "
-                        },
-                        {
-                          "type": "BLANK"
                         }
                       ]
                     }
