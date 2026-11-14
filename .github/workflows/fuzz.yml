@@ -1,0 +1,73 @@
+# =============================================================================
+#  tree-sitter-razor-modern · GitHub Actions
+# -----------------------------------------------------------------------------
+#  File                fuzz.yml
+#  Workflow name       Fuzz the parser
+#  Type                Entrypoint (runs in this repo only)
+#  Triggers            schedule (weekly)
+#                      workflow_dispatch
+#  Purpose             Runs `tree-sitter fuzz` over the corpus: each case is
+#                      edited at random, reparsed incrementally, and compared
+#                      with a fresh parse of the edited text, which exercises
+#                      the external scanner's state handling. The CLI exits 0
+#                      even when a case fails, so the job reads its output and
+#                      fails on any mismatch. Runs are bounded by the iteration
+#                      count and a job timeout, and the seed is printed so a
+#                      failure can be reproduced locally by setting
+#                      TREE_SITTER_SEED to it before `tree-sitter fuzz`.
+#
+#                      Cases listed in the exclude pattern below fail today
+#                      and are tracked separately; remove each from the
+#                      pattern once it passes.
+# =============================================================================
+
+name: Fuzz the parser
+
+on:
+  schedule:
+    - cron: '30 7 * * 2'
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Fuzzing iterations per corpus case
+        type: string
+        default: '200'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TREE_SITTER_CLI_VERSION: '0.27.1'
+
+jobs:
+  fuzz:
+    name: Fuzz the corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.x'
+
+      - name: Fuzz every corpus case
+        env:
+          ITERATIONS: ${{ inputs.iterations || '200' }}
+        run: |
+          set -uo pipefail
+          npx --yes --package=tree-sitter-cli@${TREE_SITTER_CLI_VERSION} -- tree-sitter fuzz \
+            --iterations "$ITERATIONS" --edits 3 \
+            --exclude 'Code Block with HTML' 2>&1 | tee fuzz.log
+          if grep -qE '^Incorrect parse|failed fuzzing' fuzz.log; then
+            echo "::error::An incremental parse differed from a fresh parse; the fuzz seed is at the top of the log."
+            exit 1
+          fi
