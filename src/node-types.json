@@ -1321,15 +1321,15 @@
       "required": false,
       "types": [
         {
+          "type": "conditional_access_expression",
+          "named": true
+        },
+        {
           "type": "element_access_expression",
           "named": true
         },
         {
           "type": "expression",
-          "named": true
-        },
-        {
-          "type": "generic_name",
           "named": true
         },
         {
@@ -2150,8 +2150,32 @@
         "required": true,
         "types": [
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
+            "type": "element_access_expression",
+            "named": true
+          },
+          {
             "type": "expression",
             "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "invocation_expression",
+            "named": true
+          },
+          {
+            "type": "member_access_expression",
+            "named": true
+          },
+          {
+            "type": "this",
+            "named": false
           }
         ]
       }
@@ -2776,15 +2800,15 @@
         "required": true,
         "types": [
           {
+            "type": "conditional_access_expression",
+            "named": true
+          },
+          {
             "type": "element_access_expression",
             "named": true
           },
           {
             "type": "expression",
-            "named": true
-          },
-          {
-            "type": "generic_name",
             "named": true
           },
           {
@@ -4307,6 +4331,10 @@
         "types": [
           {
             "type": "alias_qualified_name",
+            "named": true
+          },
+          {
+            "type": "conditional_access_expression",
             "named": true
           },
           {
@@ -5969,6 +5997,25 @@
     }
   },
   {
+    "type": "razor_case_condition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "pattern",
+          "named": true
+        },
+        {
+          "type": "when_clause",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "razor_catch",
     "named": true,
     "fields": {},
@@ -7042,11 +7089,11 @@
           "named": true
         },
         {
-          "type": "element_access_expression",
+          "type": "conditional_access_expression",
           "named": true
         },
         {
-          "type": "generic_name",
+          "type": "element_access_expression",
           "named": true
         },
         {
@@ -7271,6 +7318,18 @@
       "required": true,
       "types": [
         {
+          "type": "alias_qualified_name",
+          "named": true
+        },
+        {
+          "type": "generic_name",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
           "type": "qualified_name",
           "named": true
         }
@@ -7366,6 +7425,26 @@
       "multiple": false,
       "required": true,
       "types": [
+        {
+          "type": "alias_qualified_name",
+          "named": true
+        },
+        {
+          "type": "generic_name",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "qualified_name",
+          "named": true
+        },
+        {
+          "type": "razor_explicit_expression",
+          "named": true
+        },
         {
           "type": "razor_rendermode",
           "named": true
@@ -7600,7 +7679,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "comment",
@@ -7837,6 +7916,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "type_parameter_constraints_clause",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -9102,10 +9191,6 @@
     }
   },
   {
-    "type": " ",
-    "named": false
-  },
-  {
     "type": "!",
     "named": false
   },
@@ -9270,11 +9355,31 @@
     "named": false
   },
   {
+    "type": ":after",
+    "named": false
+  },
+  {
     "type": ":culture",
     "named": false
   },
   {
+    "type": ":event",
+    "named": false
+  },
+  {
+    "type": ":format",
+    "named": false
+  },
+  {
+    "type": ":get",
+    "named": false
+  },
+  {
     "type": ":preventDefault",
+    "named": false
+  },
+  {
+    "type": ":set",
     "named": false
   },
   {
@@ -9815,10 +9920,6 @@
     "named": true
   },
   {
-    "type": "razor_case_condition",
-    "named": true
-  },
-  {
     "type": "razor_comment",
     "named": true,
     "extra": true
@@ -9844,6 +9945,10 @@
     "named": false
   },
   {
+    "type": "rendermode",
+    "named": false
+  },
+  {
     "type": "required",
     "named": false
   },
@@ -9857,6 +9962,10 @@
   },
   {
     "type": "scoped",
+    "named": false
+  },
+  {
+    "type": "script",
     "named": false
   },
   {
@@ -9901,6 +10010,10 @@
   },
   {
     "type": "struct",
+    "named": false
+  },
+  {
+    "type": "style",
     "named": false
   },
   {

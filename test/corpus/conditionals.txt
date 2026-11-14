@@ -83,13 +83,20 @@ Switch
     (razor_condition
       (identifier))
     (razor_switch_case
-      (razor_case_condition)
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
       (element))
     (razor_switch_case
-      (razor_case_condition)
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
       (element))
     (razor_switch_case
-      (razor_case_condition)
+      (razor_case_condition
+        (constant_pattern
+          (string_literal
+            (string_literal_content))))
       (element))
     (razor_switch_default
       (element))))
@@ -204,3 +211,102 @@ Foreach in an if with a wrapped element
     (element))
    (razor_else
     (element)))))
+
+====
+Switch labels are patterns, and stacked labels share a body
+====
+
+@switch (value)
+{
+    case "a:b":
+        <p>colon in a string</p>
+        break;
+    case { Status: 1 }:
+        <p>property pattern</p>
+        break;
+    case 1:
+    case 2:
+        <p>one or two</p>
+        break;
+    case int n when n > 5:
+        <p>large</p>
+        break;
+    default:
+        <p>other</p>
+        break ;
+}
+----
+
+(compilation_unit
+  (razor_switch
+    (razor_condition
+      (identifier))
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (string_literal
+            (string_literal_content))))
+      (element))
+    (razor_switch_case
+      (razor_case_condition
+        (recursive_pattern
+          (property_pattern_clause
+            (subpattern
+              (identifier)
+              (constant_pattern
+                (integer_literal))))))
+      (element))
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal))))
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
+      (element))
+    (razor_switch_case
+      (razor_case_condition
+        (declaration_pattern
+          type: (predefined_type)
+          name: (identifier))
+        (when_clause
+          (binary_expression
+            left: (identifier)
+            right: (integer_literal))))
+      (element))
+    (razor_switch_default
+      (element)
+      (break_statement))))
+
+====
+A default label may share the body of the label after it
+====
+
+@switch (value)
+{
+    case 1:
+        <p>one</p>
+        break;
+    default:
+    case 2:
+        <p>two or other</p>
+        break;
+}
+----
+
+(compilation_unit
+  (razor_switch
+    (razor_condition
+      (identifier))
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
+      (element))
+    (razor_switch_default)
+    (razor_switch_case
+      (razor_case_condition
+        (constant_pattern
+          (integer_literal)))
+      (element))))

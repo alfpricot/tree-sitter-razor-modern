@@ -126,3 +126,13 @@
 @section Scripts {
 // <- keyword
 }
+
+<InputText @bind-Value="model.Name" @bind-Value:event="oninput" @bind:after="Save" @rendermode="InteractiveServer" />
+//         ^^^^^^^^^^^ function
+//                                  ^^^^^^^^^^^^^^^^^ function
+//                                                              ^^^^^^^^^^^ function
+//                                                                                 ^^^^^^^^^^^ function
+
+<div @onsubmit:preventDefault @onlineStatus />
+//   ^^^^^^^^^^^^^^^^^^^^^^^^ function
+//                            ^ variable

@@ -51,6 +51,7 @@ A parse runs from a consumer's call into the binding (Rust or Node), through the
 
 - **Pull requests and pushes to `dev` and `main`**: `verify.yml` (workflow `Verify`) regenerates the parser and fails on drift, checks the node-kind snapshot, lints and format-checks the JavaScript, runs the corpus, highlight, and example checks, builds and tests the Rust and Node bindings, validates the pull request title, scans for secrets, and lints the workflow files.
 - **Release**: when a promotion lands on `main`, `gala-release.yml` runs gala (configured in `.gala.toml`), which bumps the version in `Cargo.toml`, `package.json`, and `tree-sitter.json` from Conventional Commits, refreshes `package-lock.json`, regenerates the parser (whose metadata embeds the `tree-sitter.json` version), updates `CHANGELOG.md`, commits and tags the release, pushes both over a deploy key, and fast-forwards `dev` to the release commit. The workflow then dispatches `release.yml` on the new tag; that workflow publishes the crate and the npm packages and creates the GitHub Release with a WASM build attached.
+- **Fuzzing**: `fuzz.yml` runs weekly and on demand. It edits each corpus case at random and fails when an incremental reparse differs from a fresh parse, which exercises the external scanner's state handling.
 - **Maintenance**: `cache-cleanup.yml` clears stale caches on demand, and Dependabot updates dependencies against `dev`.
 - This repository is a library, so nothing is deployed.
 
@@ -63,6 +64,6 @@ A parse runs from a consumer's call into the binding (Rust or Node), through the
 | `queries/` | Highlight and injection queries |
 | `bindings/` | Rust and Node bindings |
 | `test/`, `examples/` | Corpus, highlight, and example-page tests |
-| `tools/` | Release-policy and package-check scripts |
+| `tools/` | Release-policy, package-check, and scanner-drift scripts |
 | `docs/` | Supporting documents |
 | `.github/workflows/` | Verify, release, and maintenance workflows |

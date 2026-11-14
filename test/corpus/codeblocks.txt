@@ -10,7 +10,7 @@ Anonymous Code Blocks
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (modifier)
       (variable_declaration
         (predefined_type)
@@ -107,7 +107,7 @@ Multiple Code Blocks
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator
@@ -138,7 +138,7 @@ Code Block with HTML
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator
@@ -147,3 +147,140 @@ Code Block with HTML
     (element
       (razor_implicit_expression
         (identifier)))))
+
+==================
+A declaration is a local in a code block and a member in a code directive
+==================
+
+@{
+    int count = 0;
+    int Twice(int n) => n * 2;
+}
+@code {
+    int count = 0;
+    int Twice(int n) => n * 2;
+}
+
+---
+
+(compilation_unit
+  (razor_block
+    (local_declaration_statement
+      (variable_declaration
+        (predefined_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))
+    (local_function_statement
+      (predefined_type)
+      (identifier)
+      (parameter_list
+        (parameter
+          (predefined_type)
+          (identifier)))
+      (arrow_expression_clause
+        (binary_expression
+          (identifier)
+          (integer_literal)))))
+  (razor_block
+    (field_declaration
+      (variable_declaration
+        (predefined_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))
+    (method_declaration
+      (predefined_type)
+      (identifier)
+      (parameter_list
+        (parameter
+          (predefined_type)
+          (identifier)))
+      (arrow_expression_clause
+        (binary_expression
+          (identifier)
+          (integer_literal))))))
+
+==================
+Preprocessor directives inside code blocks and code directives
+==================
+
+@{
+#if DEBUG
+    int level = 1;
+#else
+    int level = 2;
+#endif
+}
+@code {
+#if DEBUG
+    [Obsolete]
+#endif
+    void Reset() { }
+    int count;
+}
+
+---
+
+(compilation_unit
+  (razor_block
+    (preproc_if
+      (identifier)
+      (local_declaration_statement
+        (variable_declaration
+          (predefined_type)
+          (variable_declarator
+            (identifier)
+            (integer_literal))))
+      (preproc_else
+        (local_declaration_statement
+          (variable_declaration
+            (predefined_type)
+            (variable_declarator
+              (identifier)
+              (integer_literal)))))))
+  (razor_block
+    (method_declaration
+      (preproc_if_in_attribute_list
+        (identifier)
+        (attribute_list
+          (attribute
+            (identifier))))
+      (predefined_type)
+      (identifier)
+      (parameter_list)
+      (block))
+    (field_declaration
+      (variable_declaration
+        (predefined_type)
+        (variable_declarator
+          (identifier))))))
+
+==================
+A destructor in a code directive and a nested class in a functions block
+==================
+
+@code {
+    ~Widget() { }
+}
+@functions {
+    class Nested { int y; }
+}
+
+---
+
+(compilation_unit
+  (razor_block
+    (destructor_declaration
+      (identifier)
+      (parameter_list)
+      (block)))
+  (razor_block
+    (class_declaration
+      (identifier)
+      (declaration_list
+        (field_declaration
+          (variable_declaration
+            (predefined_type)
+            (variable_declarator
+              (identifier))))))))

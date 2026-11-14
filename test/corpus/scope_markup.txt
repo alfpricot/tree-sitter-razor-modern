@@ -93,7 +93,7 @@ C# comments in a code block
   (razor_block
     (comment)
     (comment)
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator

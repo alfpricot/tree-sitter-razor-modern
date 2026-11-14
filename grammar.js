@@ -25,46 +25,54 @@ function commaSep1(rule) {
   return seq(rule, repeat(seq(',', rule)));
 }
 
+/**
+ * The attributes and embedded expressions between an element's tag name and its closing `>`.
+ * @param {GrammarSymbols<string>} $
+ */
+function elementAttributes($) {
+  return repeat(
+    prec.left(
+      seq(
+        choice(
+          $._html_attribute,
+          $.razor_html_attribute,
+          $.razor_explicit_expression,
+          $.razor_implicit_expression,
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * The rest of the file after its first node or text run: nodes and text, optionally ending in a
+ * `@using` or `@inject` directive (which then carries the remainder itself).
+ * @param {GrammarSymbols<string>} $
+ */
+function bodyRest($) {
+  return seq(repeat(choice($._node, $._html_text)), optional($._late_directive));
+}
+
 export default grammar(CSHARP, {
   name: 'razor',
 
   externals: ($, original) =>
-    original.concat([$._implicit_dot, $._implicit_paren, $._implicit_bracket, $._implicit_lt]),
+    original.concat([
+      $._implicit_dot,
+      $._implicit_paren,
+      $._implicit_bracket,
+      $._implicit_question,
+      $._raw_script_text,
+      $._raw_style_text,
+      $._razor_event_name,
+      $._typeparam_where,
+    ]),
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],
 
-  conflicts: ($, o) => [
-    [
-      $.preproc_if,
-      $.preproc_if_in_top_level,
-      $.preproc_if_in_expression,
-      $.preproc_if_in_attribute_list,
-    ],
-    [$.preproc_if, $.preproc_if_in_top_level],
-    [$.preproc_if, $.preproc_if_in_top_level, $.preproc_if_in_expression],
-    [$.preproc_if, $.preproc_if_in_top_level, $.preproc_if_in_attribute_list],
-    [
-      $.preproc_else,
-      $.preproc_else_in_top_level,
-      $.preproc_else_in_expression,
-      $.preproc_else_in_attribute_list,
-    ],
-    [$.declaration, $.preproc_if_in_top_level],
-    [$.type_declaration, $.declaration],
-    [$.method_declaration, $._local_function_declaration],
-    [$.declaration, $.preproc_else_in_top_level],
-    [
-      $.preproc_elif,
-      $.preproc_elif_in_top_level,
-      $.preproc_elif_in_expression,
-      $.preproc_elif_in_attribute_list,
-    ],
-
-    [$.destructor_declaration, $._simple_name],
-
-    [$.field_declaration, $.local_declaration_statement],
-    ...o,
-  ],
+  // Code blocks take statements and `@code`/`@functions` blocks take members, so neither needs
+  // a conflict of its own; only the C# grammar's conflicts remain.
+  conflicts: (_, original) => original,
 
   rules: {
     compilation_unit: ($) =>
@@ -89,9 +97,19 @@ export default grammar(CSHARP, {
             $.razor_taghelperprefix_directive,
           ),
         ),
-        // Text is only valid after the first node or block: directly after a directive, a
-        // text run would compete with the string that `@page` optionally takes.
-        optional(seq($._node, repeat(choice($._node, $._html_text)))),
+        // A leading text run has to start with a character that cannot continue a directive (see
+        // `_html_text_start`), so it cannot compete with the string that `@page` optionally takes
+        // or with the end of a directive's name.
+        optional(seq(choice($._node, $._html_text_start), bodyRest($))),
+      ),
+
+    // `@using` and `@inject` may also appear after the first node. Text directly after one of
+    // them has to start like the first text run (see `_html_text_start`), for the same reason: a
+    // text run starting with `.` would otherwise take the rest of a dotted name.
+    _late_directive: ($) =>
+      seq(
+        choice($.razor_using_directive, $.razor_inject_directive),
+        optional(choice($._late_directive, seq(choice($._node, $._html_text_start), bodyRest($)))),
       ),
 
     _identifier_token: (_) =>
@@ -174,13 +192,30 @@ export default grammar(CSHARP, {
     razor_inherits_directive: ($) =>
       seq(alias(seq($._razor_marker, 'inherits'), 'at_inherits'), field('name', $._name)),
     razor_typeparam_directive: ($) =>
-      seq(alias(seq($._razor_marker, 'typeparam'), 'at_typeparam'), field('name', $._name)),
+      seq(
+        alias(seq($._razor_marker, 'typeparam'), 'at_typeparam'),
+        field('name', $._name),
+        repeat(alias($._typeparam_constraints_clause, $.type_parameter_constraints_clause)),
+      ),
+    // A `where` clause on a type parameter. The scanner emits its keyword only when a name and a
+    // colon follow on the same line, so a line of text that merely starts with the word `where`
+    // is still text.
+    _typeparam_constraints_clause: ($) =>
+      seq(
+        alias($._typeparam_where, 'where'),
+        $.identifier,
+        ':',
+        commaSep1($.type_parameter_constraint),
+      ),
     razor_inject_directive: ($) =>
       seq(alias(seq($._razor_marker, 'inject'), 'at_inject'), $.variable_declaration),
     razor_namespace_directive: ($) =>
-      seq(alias(seq($._razor_marker, 'namespace'), 'at_namespace'), $.qualified_name),
+      seq(alias(seq($._razor_marker, 'namespace'), 'at_namespace'), $._name),
     razor_rendermode_directive: ($) =>
-      seq(alias(seq($._razor_marker, 'rendermode'), 'at_rendermode'), $.razor_rendermode),
+      seq(
+        alias(seq($._razor_marker, 'rendermode'), 'at_rendermode'),
+        choice($.razor_rendermode, $._name, $.razor_explicit_expression),
+      ),
     razor_rendermode: (_) =>
       choice('InteractiveServer', 'InteractiveWebAssembly', 'InteractiveAuto'),
 
@@ -202,13 +237,21 @@ export default grammar(CSHARP, {
         choice($.string_literal, $.identifier),
       ),
 
+    // An `@{ ... }` block is a method body, so it holds statements; `@code` and `@functions`
+    // blocks hold class members. Keeping the two apart means a declaration such as
+    // `int x = 1;` has one reading in each: if a block accepted both, the field and the local
+    // variable would be an ambiguity the parser could settle differently on an incremental
+    // reparse than on a fresh parse.
     razor_block: ($) =>
       prec.left(
-        seq(
-          alias(seq($._razor_marker, optional(choice('code', 'functions'))), 'at_block'),
-          '{',
-          repeat(choice($.declaration, seq($.statement), $._node)),
-          '}',
+        choice(
+          seq(alias($._razor_marker, 'at_block'), '{', repeat(choice($.statement, $._node)), '}'),
+          seq(
+            alias(seq($._razor_marker, choice('code', 'functions')), 'at_block'),
+            '{',
+            repeat(choice($.declaration, $._node)),
+            '}',
+          ),
         ),
       ),
 
@@ -240,8 +283,8 @@ export default grammar(CSHARP, {
       choice(
         $.identifier,
         'this',
-        alias($._implicit_generic_name, $.generic_name),
         alias($._implicit_member, $.member_access_expression),
+        alias($._implicit_conditional_access, $.conditional_access_expression),
         alias($._implicit_invocation, $.invocation_expression),
         alias($._implicit_index, $.element_access_expression),
       ),
@@ -251,26 +294,29 @@ export default grammar(CSHARP, {
         /(\p{XID_Start}|_|\\u[0-9A-Fa-f]{4}|\\U[0-9A-Fa-f]{8})(\p{XID_Continue}|\\u[0-9A-Fa-f]{4}|\\U[0-9A-Fa-f]{8})*/,
       ),
 
-    _implicit_type_argument_list: ($) => seq($._implicit_lt, commaSep1($.type), '>'),
-
-    _implicit_type_arguments: ($) => alias($._implicit_type_argument_list, $.type_argument_list),
-
-    _implicit_generic_name: ($) => seq($.identifier, $._implicit_type_arguments),
-
-    _implicit_member_generic_name: ($) =>
-      seq(alias($._implicit_identifier, $.identifier), $._implicit_type_arguments),
-
-    _implicit_member_name: ($) =>
-      choice(
-        alias($._implicit_identifier, $.identifier),
-        alias($._implicit_member_generic_name, $.generic_name),
-      ),
+    _implicit_member_name: ($) => alias($._implicit_identifier, $.identifier),
 
     _implicit_member: ($) =>
       seq(
         field('expression', $._implicit_chain),
         alias($._implicit_dot, '.'),
         field('name', $._implicit_member_name),
+      ),
+
+    // `@a?.b` and `@a?[0]`: the `?` is scanned only when a `.` and a name follow it directly, or
+    // a `[` that a `]` closes on the same line (outside script and style). Razor does not allow
+    // generic type arguments in an implicit expression, so `@a<b>(c)` leaves `<b>` as a tag.
+    _implicit_member_binding: ($) =>
+      seq(alias($._implicit_dot, '.'), field('name', $._implicit_member_name)),
+
+    _implicit_conditional_access: ($) =>
+      seq(
+        field('condition', $._implicit_chain),
+        alias($._implicit_question, '?'),
+        choice(
+          alias($._implicit_member_binding, $.member_binding_expression),
+          alias($._implicit_subscript, $.element_binding_expression),
+        ),
       ),
 
     _implicit_argument_list: ($) => seq(alias($._implicit_paren, '('), commaSep($.argument), ')'),
@@ -358,12 +404,16 @@ export default grammar(CSHARP, {
     razor_condition: ($) => prec(10, seq('(', $.expression, ')')),
 
     razor_switch_case: ($) =>
-      prec.left(seq('case', $.razor_case_condition, ':', $._blended_content, optional('break;'))),
+      prec.left(
+        seq('case', $.razor_case_condition, ':', optional($._blended_content), optional('break;')),
+      ),
 
     razor_switch_default: ($) =>
-      prec.right(seq('default', ':', $._blended_content, optional('break;'))),
+      prec.right(seq('default', ':', optional($._blended_content), optional('break;'))),
 
-    razor_case_condition: (_) => /[^:]+/,
+    // A case label is a C# pattern with an optional `when` clause. A label with no body of its own
+    // (`case 1:` directly followed by `case 2:`) shares the body of the label after it.
+    razor_case_condition: ($) => seq($.pattern, optional($.when_clause)),
 
     _razor_for_initializer: ($) =>
       seq(
@@ -438,19 +488,78 @@ export default grammar(CSHARP, {
       seq(
         $._razor_marker,
         seq(
-          choice('attributes', 'bind', 'formname', token(prec(10, /on[a-z]+/i)), 'key', 'ref'),
+          choice(
+            'attributes',
+            'bind',
+            // `@bind-Value` for a bound component parameter. The plain `bind` stays a keyword so a
+            // longer identifier such as `@bindings` is still read whole as an expression.
+            token(prec(10, /bind-[A-Za-z_][A-Za-z0-9_]*/)),
+            'formname',
+            // `@onclick` and the other event names: the scanner emits this only when `=` (possibly
+            // after spaces, tabs, or line breaks) or `:` follows the name, so an expression such as `@onlineStatus` is still read as an expression.
+            $._razor_event_name,
+            'key',
+            'ref',
+            'rendermode',
+          ),
           optional($.razor_attribute_modifier),
         ),
       ),
 
-    razor_attribute_modifier: (_) => choice(':culture', ':preventDefault', ':stopPropagation'),
+    razor_attribute_modifier: (_) =>
+      choice(
+        ':culture',
+        ':preventDefault',
+        ':stopPropagation',
+        ':event',
+        ':format',
+        ':after',
+        ':get',
+        ':set',
+      ),
 
-    html_comment: (_) => token(seq('<!--', /[^-]*-+([^->][^-]*-+)*/, '>')),
+    // Ends at the first `-->` or `--!>`; a lone `->` or `--` inside the comment does not close it.
+    // The abrupt forms `<!-->` and `<!--->` also close at once, as in a browser, so the body of
+    // the longest alternative cannot start with `>` or `->`. `--(-|!--)*` is the browser's
+    // comment-end state: any run of dashes, where a `!` followed by two more dashes returns to it,
+    // and the `!` followed by `>` closes. The body items below cannot cross a closing sequence,
+    // because the longest match would otherwise run on to a later `-->`.
+    html_comment: (_) =>
+      token(
+        choice(
+          '<!-->',
+          '<!--->',
+          seq('<!--', /--(-|!--)*!?>/),
+          seq(
+            '<!--',
+            /(-?[^->-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))([^-]|-[^-]|--(-|!--)*([^->!-]|![^->-]|!-[^-]))*--(-|!--)*!?>/,
+          ),
+        ),
+      ),
 
     html_doctype: (_) => token(seq('<!', /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/, /[^>]*/, '>')),
 
     // HTML Base Definitions
-    _tag_name: (_) => /[a-zA-Z0-9-:]+/,
+    // The HTML void elements never have content or an end tag, so `<br>` and `<br />` are both
+    // complete. Only the lowercase spelling is recognized so that a component such as `<Link>`
+    // still takes an end tag.
+    _void_tag_name: (_) =>
+      token(prec(1, /area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr/)),
+
+    // An explicit end tag on a void element (`<input></input>`, `<br></br>`) is accepted and
+    // ignored. It is one token so that a parent's end tag, which also starts with `</`, is never
+    // mistaken for it.
+    _void_end_tag: (_) =>
+      token(seq('</', /area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr/, /[ \t]*>/)),
+
+    // The content of `script` and `style` is raw text up to the matching end tag, so a `<` in
+    // inline JavaScript or CSS is not read as the start of a tag.
+    _script_tag_name: (_) => token(prec(1, 'script')),
+    _style_tag_name: (_) => token(prec(1, 'style')),
+
+    // Same precedence as the void, script, and style names above, so a longer name that merely
+    // starts with one of them (`colgroup`, `metadata`, `input-group`) is still read whole.
+    _tag_name: (_) => token(prec(1, /[a-zA-Z0-9-:]+/)),
     _end_tag: ($) => seq('</', $._tag_name, '>'),
     _html_attribute_name: (_) => /[a-zA-Z0-9_:.\-]+/,
     _html_attribute_value: ($) =>
@@ -470,14 +579,26 @@ export default grammar(CSHARP, {
         $.razor_implicit_expression,
       ),
     // An `@` directly between two letters or digits is part of the text (an email address),
-    // not a transition, so it is allowed inside these text runs.
-    _attr_text_dq: (_) => /([^"@]|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
-    _attr_text_sq: (_) => /([^'@]|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
-    _attr_text_unquoted: (_) => /[^\s"'=<>`@]+/,
+    // and `@@` is an escaped `@`; neither is a transition, so both are allowed inside these text
+    // runs.
+    _attr_text_dq: (_) => /([^"@]|@@|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
+    _attr_text_sq: (_) => /([^'@]|@@|[\p{L}\p{N}]@[\p{L}\p{N}])+/,
+    _attr_text_unquoted: (_) => /([^\s"'=<>`@]|@@)+/,
     // Text runs stop at the end of a line so that a `//` comment on the next line is not
     // absorbed into the text before it.
     _html_text: (_) =>
       /([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
+
+    // The same text as `_html_text`, but it must start with a letter, a digit, or one of a few
+    // punctuation marks. Directly after a directive this keeps the text from taking a double quote
+    // (the `@page` string) or the punctuation that continues a directive's name (`.`, `<`, `?`,
+    // `[`, `(`, `,`, `:`) away from it, and from a `/` that starts a comment.
+    _html_text_start: (_) =>
+      /([\p{L}\p{N}]@[\p{L}\p{N}]|[\p{L}\p{N}&!'$%+~^|-])(([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*([^<@\s]|[\p{L}\p{N}]@[\p{L}\p{N}]))?/,
+
+    // Inside an element, `//` is ordinary text (a URL scheme separator, a note), not a C#
+    // comment, so this outranks the `comment` extra and keeps it from swallowing the end tag.
+    _html_slash_text: (_) => token(prec(2, /\/\/([^<@\r\n]|[\p{L}\p{N}]@[\p{L}\p{N}])*/)),
 
     // A directive attribute value is C# by default, and may also open with an explicit `@`
     // transition (`@onclick="@Handler"`, `@onclick="@(e => Save(e))"`), which Razor accepts and
@@ -500,25 +621,34 @@ export default grammar(CSHARP, {
       seq($.razor_attribute_name, optional(seq('=', $.razor_attribute_value))),
 
     element: ($) =>
-      seq(
-        '<',
-        $._tag_name,
-        optional(
-          repeat(
-            prec.left(
-              seq(
-                choice(
-                  $._html_attribute,
-                  $.razor_html_attribute,
-                  $.razor_explicit_expression,
-                  $.razor_implicit_expression,
-                ),
-                optional(' '),
-              ),
-            ),
+      choice(
+        seq(
+          '<',
+          $._void_tag_name,
+          elementAttributes($),
+          choice('/>', seq('>', optional($._void_end_tag))),
+        ),
+        seq(
+          '<',
+          $._script_tag_name,
+          elementAttributes($),
+          choice('/>', seq('>', repeat(choice($._raw_script_text, $._node)), $._end_tag)),
+        ),
+        seq(
+          '<',
+          $._style_tag_name,
+          elementAttributes($),
+          choice('/>', seq('>', repeat(choice($._raw_style_text, $._node)), $._end_tag)),
+        ),
+        seq(
+          '<',
+          $._tag_name,
+          elementAttributes($),
+          choice(
+            '/>',
+            seq('>', repeat(choice($._node, $._html_text, $._html_slash_text)), $._end_tag),
           ),
         ),
-        choice('/>', seq('>', repeat(choice($._node, $._html_text)), $._end_tag)),
       ),
   },
 });

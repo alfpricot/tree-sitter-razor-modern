@@ -186,71 +186,23 @@ jobs:
         run: node tools/release-policy.mjs versions
 
       - name: Verify publishable package contents
-        run: |
-          set -euo pipefail
-          cargo package --list --allow-dirty > cargo-package-files.txt
-          grep -Fx 'src/parser.c' cargo-package-files.txt
-          grep -Fx 'src/scanner.c' cargo-package-files.txt
-          grep -Fx 'queries/highlights.scm' cargo-package-files.txt
-          if grep -Eq '(^|/)(\.git|\.worktrees|node_modules|target)/' cargo-package-files.txt; then
-            echo '::error::The crate package contains workspace-only files'
-            exit 1
-          fi
+        run: node tools/package-check.mjs
 
-          npm pack --dry-run --json > npm-package.json
-          node -e '
-            const packageInfo = JSON.parse(require("fs").readFileSync("npm-package.json", "utf8"));
-            const pack = Array.isArray(packageInfo) ? packageInfo[0] : packageInfo["tree-sitter-razor-modern"];
-            const files = pack.files.map(({path}) => path);
-            for (const required of ["src/parser.c", "src/scanner.c", "queries/highlights.scm"]) {
-              if (!files.includes(required)) throw new Error(`npm package is missing ${required}`);
-            }
-            if (files.some(path => /(^|\/)(?:\.git|\.worktrees|node_modules|target)\//.test(path))) {
-              throw new Error("npm package contains workspace-only files");
-            }
-          '
+      - name: Check the vendored scanner still matches the upstream token order
+        run: node tools/scanner-drift.mjs
 
       - name: Run corpus and highlight tests
         run: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter test
 
       - name: Parse every example page and fail on ERROR/MISSING or zero-width nodes
-        run: |
-          set -euo pipefail
-          if ! combined=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse examples/*.cshtml 2>&1); then
-            combined_failed=1
-          else
-            combined_failed=0
-          fi
-          combined_zero_width_count=$(printf '%s\n' "$combined" | grep -cE '\[([0-9]+), ([0-9]+)\] - \[\1, \2\]' || true)
-          if [ "$combined_failed" -eq 0 ] && [ "$combined_zero_width_count" -eq 0 ]; then
-            exit 0
-          fi
-
-          echo "::warning::Combined example parse found a problem — re-parsing each example individually to identify it."
-          fail=0
-          for f in examples/*.cshtml; do
-            if ! output=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse "$f" 2>&1); then
-              parse_failed=1
-            else
-              parse_failed=0
-            fi
-            error_count=$(printf '%s\n' "$output" | grep -c 'ERROR\|MISSING' || true)
-            zero_width_count=$(printf '%s\n' "$output" | grep -cE '\[([0-9]+), ([0-9]+)\] - \[\1, \2\]' || true)
-            if [ "$parse_failed" -eq 1 ] && [ "$error_count" -eq 0 ]; then
-              echo "::error file=$f::tree-sitter parse exited non-zero with no ERROR/MISSING node detected (possible crash)"
-              printf '%s\n' "$output"
-              fail=1
-            elif [ "$error_count" -ne 0 ] || [ "$zero_width_count" -ne 0 ]; then
-              echo "::error file=$f::$error_count ERROR/MISSING node(s), $zero_width_count zero-width node(s)"
-              fail=1
-            fi
-          done
-          exit "$fail"
+        env:
+          TREE_SITTER: npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter
+        run: bash test/check-examples.sh
 
       - name: Report example parse performance
         run: |
           set -euo pipefail
-          stats=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse --quiet --time --stat examples/*.cshtml 2>&1 | grep '^Total parses:')
+          stats=$(npx --yes --package=tree-sitter-cli@${{ env.TREE_SITTER_CLI_VERSION }} -- tree-sitter parse --quiet --time --stat examples/*.cshtml examples/*.razor 2>&1 | grep '^Total parses:')
           parser_bytes=$(wc -c < src/parser.c)
           {
             echo "### Example parse performance"

@@ -10,7 +10,7 @@ Code block with a local function and cast
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (predefined_type)
         (variable_declarator
@@ -28,7 +28,7 @@ Code block with a local function and cast
                   (string_literal
                     (string_literal_content)))))
             (predefined_type)))))
-    (method_declaration
+    (local_function_statement
       (predefined_type)
       (identifier)
       (parameter_list
@@ -206,7 +206,10 @@ Switch with cases and default
         (identifier)
         (identifier)))
     (razor_switch_case
-      (razor_case_condition)
+      (razor_case_condition
+        (constant_pattern
+          (string_literal
+            (string_literal_content))))
       (element))
     (razor_switch_default
       (element))))
@@ -407,7 +410,7 @@ Multi-line declaration with conditional in an element
 (compilation_unit
   (element
     (razor_block
-      (field_declaration
+      (local_declaration_statement
         (variable_declaration
           (predefined_type)
           (variable_declarator

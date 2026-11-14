@@ -25,6 +25,7 @@ node test/generate-node-kinds.mjs
 npm run lint
 npm run format:check
 node --test tools/*.test.mjs
+node tools/scanner-drift.mjs
 npx --yes --package=tree-sitter-cli@0.27.1 -- tree-sitter test
 TREE_SITTER=tree-sitter bash test/check-examples.sh
 cargo fmt --check
@@ -34,8 +35,9 @@ cargo test
 
 The `Verify` workflow runs these steps, plus `npm install` and `npm test` for the Node binding, a package-contents check, secret scanning, and workflow linting. After the first two commands, `git diff` should show no change to the generated parser or to `test/node-kinds.txt`; CI fails when either is out of date.
 
+- `src/scanner.c` is a copy of the `tree-sitter-c-sharp` scanner with the Razor tokens appended, and its `// Upstream:` header names the version it was copied from. When a bump of `tree-sitter-c-sharp` makes `node tools/scanner-drift.mjs` fail, diff `node_modules/tree-sitter-c-sharp/src/scanner.c` against `src/scanner.c`, carry any upstream change into the copy (keeping the upstream token order as a prefix), and update the header. Dependabot opens that bump as its own pull request.
 - `test/corpus/` holds tree assertions for each Razor construct, and `test/highlight/` holds highlight assertions. Add a corpus test for every grammar change.
-- `examples/*.cshtml` holds sanitized real pages that must parse with no `ERROR`, `MISSING`, or zero-width nodes. `test/check-examples.sh` runs the same per-file check as CI; set `TREE_SITTER` to the CLI to use.
+- `examples/*.cshtml` and `examples/*.razor` hold sanitized pages and sample components that must parse with no `ERROR`, `MISSING`, or zero-width nodes. `test/check-examples.sh` runs the same per-file check as CI; set `TREE_SITTER` to the CLI to use.
 - Run `npm run format` to apply formatting. The generated parser under `src/` is excluded.
 
 ## Pull requests

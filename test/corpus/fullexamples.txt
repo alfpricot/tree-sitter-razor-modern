@@ -412,7 +412,7 @@ Person? secondAuthor)
 
 (compilation_unit
   (razor_block
-    (method_declaration
+    (local_function_statement
       (modifier)
       (tuple_type
         (tuple_element
