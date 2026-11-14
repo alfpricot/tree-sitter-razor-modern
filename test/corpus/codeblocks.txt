@@ -10,7 +10,7 @@ Anonymous Code Blocks
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (modifier)
       (variable_declaration
         (predefined_type)
@@ -107,7 +107,7 @@ Multiple Code Blocks
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator
@@ -138,7 +138,7 @@ Code Block with HTML
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator
@@ -147,3 +147,56 @@ Code Block with HTML
     (element
       (razor_implicit_expression
         (identifier)))))
+
+==================
+A declaration is a local in a code block and a member in a code directive
+==================
+
+@{
+    int count = 0;
+    int Twice(int n) => n * 2;
+}
+@code {
+    int count = 0;
+    int Twice(int n) => n * 2;
+}
+
+---
+
+(compilation_unit
+  (razor_block
+    (local_declaration_statement
+      (variable_declaration
+        (predefined_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))
+    (local_function_statement
+      (predefined_type)
+      (identifier)
+      (parameter_list
+        (parameter
+          (predefined_type)
+          (identifier)))
+      (arrow_expression_clause
+        (binary_expression
+          (identifier)
+          (integer_literal)))))
+  (razor_block
+    (field_declaration
+      (variable_declaration
+        (predefined_type)
+        (variable_declarator
+          (identifier)
+          (integer_literal))))
+    (method_declaration
+      (predefined_type)
+      (identifier)
+      (parameter_list
+        (parameter
+          (predefined_type)
+          (identifier)))
+      (arrow_expression_clause
+        (binary_expression
+          (identifier)
+          (integer_literal))))))
