@@ -46,10 +46,17 @@ export function scannerDrift(ours, upstream, upstreamVersion) {
 
 // Compare real paths: import.meta.url is already resolved, argv[1] is not, so a symlinked
 // invocation would otherwise skip the body and exit 0 without checking anything.
-if (
-  process.argv[1] !== undefined &&
-  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
-) {
+function isMainScript() {
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    // An argv[1] that is missing or not a path (`node -e` with a stray argument) means this
+    // module was imported, not run.
+    return false;
+  }
+}
+
+if (isMainScript()) {
   const upstreamDir = 'node_modules/tree-sitter-c-sharp';
   const { version } = JSON.parse(readFileSync(`${upstreamDir}/package.json`, 'utf8'));
   const problems = scannerDrift(

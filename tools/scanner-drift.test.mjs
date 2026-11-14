@@ -57,3 +57,18 @@ test('the check runs when the script is reached through a symlink', (t) => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('importing the module does not throw when argv[1] is not an existing path', () => {
+  const url = new URL('./scanner-drift.mjs', import.meta.url).href;
+  const output = execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `await import(${JSON.stringify(url)}); console.log('imported');`,
+      'no-such-script',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.match(output, /imported/);
+});

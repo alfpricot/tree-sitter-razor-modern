@@ -115,9 +115,16 @@ export function runCommand(command, env = process.env) {
 
 // Compare real paths: import.meta.url is already resolved, argv[1] is not, so a symlinked
 // invocation would otherwise skip the command and exit 0 without checking anything.
-if (
-  process.argv[1] !== undefined &&
-  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
-) {
+function isMainScript() {
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+  } catch {
+    // An argv[1] that is missing or not a path (`node -e` with a stray argument) means this
+    // module was imported, not run.
+    return false;
+  }
+}
+
+if (isMainScript()) {
   runCommand(process.argv[2]);
 }
