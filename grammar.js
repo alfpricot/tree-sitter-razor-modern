@@ -517,7 +517,7 @@ export default grammar(CSHARP, {
             token(prec(10, /bind-[A-Za-z_][A-Za-z0-9_]*/)),
             'formname',
             // `@onclick` and the other event names: the scanner emits this only when `=` (possibly
-            // after spaces or tabs) or `:` follows the name, so an expression such as `@onlineStatus` is still read as an expression.
+            // after spaces, tabs, or line breaks) or `:` follows the name, so an expression such as `@onlineStatus` is still read as an expression.
             $._razor_event_name,
             'key',
             'ref',
