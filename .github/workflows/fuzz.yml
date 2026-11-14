@@ -15,10 +15,6 @@
 #                      count and a job timeout, and the seed is printed so a
 #                      failure can be reproduced locally by setting
 #                      TREE_SITTER_SEED to it before `tree-sitter fuzz`.
-#
-#                      Cases listed in the exclude pattern below fail today
-#                      and are tracked separately; remove each from the
-#                      pattern once it passes.
 # =============================================================================
 
 name: Fuzz the parser
@@ -65,8 +61,7 @@ jobs:
         run: |
           set -uo pipefail
           npx --yes --package=tree-sitter-cli@${TREE_SITTER_CLI_VERSION} -- tree-sitter fuzz \
-            --iterations "$ITERATIONS" --edits 3 \
-            --exclude 'Code Block with HTML' 2>&1 | tee fuzz.log
+            --iterations "$ITERATIONS" --edits 3 2>&1 | tee fuzz.log
           if grep -qE '^Incorrect parse|failed fuzzing' fuzz.log; then
             echo "::error::An incremental parse differed from a fresh parse; the fuzz seed is at the top of the log."
             exit 1

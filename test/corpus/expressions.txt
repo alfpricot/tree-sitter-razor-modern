@@ -27,7 +27,7 @@ Explicit Razor Expression with code
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator
@@ -84,7 +84,7 @@ Implicit Razor Expression Mid Line
 
 (compilation_unit
   (razor_block
-    (field_declaration
+    (local_declaration_statement
       (variable_declaration
         (implicit_type)
         (variable_declarator

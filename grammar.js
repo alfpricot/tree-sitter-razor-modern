@@ -70,38 +70,9 @@ export default grammar(CSHARP, {
 
   extras: ($) => [$.razor_comment, $.comment, /\s+/],
 
-  conflicts: ($, o) => [
-    [
-      $.preproc_if,
-      $.preproc_if_in_top_level,
-      $.preproc_if_in_expression,
-      $.preproc_if_in_attribute_list,
-    ],
-    [$.preproc_if, $.preproc_if_in_top_level],
-    [$.preproc_if, $.preproc_if_in_top_level, $.preproc_if_in_expression],
-    [$.preproc_if, $.preproc_if_in_top_level, $.preproc_if_in_attribute_list],
-    [
-      $.preproc_else,
-      $.preproc_else_in_top_level,
-      $.preproc_else_in_expression,
-      $.preproc_else_in_attribute_list,
-    ],
-    [$.declaration, $.preproc_if_in_top_level],
-    [$.type_declaration, $.declaration],
-    [$.method_declaration, $._local_function_declaration],
-    [$.declaration, $.preproc_else_in_top_level],
-    [
-      $.preproc_elif,
-      $.preproc_elif_in_top_level,
-      $.preproc_elif_in_expression,
-      $.preproc_elif_in_attribute_list,
-    ],
-
-    [$.destructor_declaration, $._simple_name],
-
-    [$.field_declaration, $.local_declaration_statement],
-    ...o,
-  ],
+  // Code blocks take statements and `@code`/`@functions` blocks take members, so neither needs
+  // a conflict of its own; only the C# grammar's conflicts remain.
+  conflicts: (_, original) => original,
 
   rules: {
     compilation_unit: ($) =>
@@ -266,13 +237,21 @@ export default grammar(CSHARP, {
         choice($.string_literal, $.identifier),
       ),
 
+    // An `@{ ... }` block is a method body, so it holds statements; `@code` and `@functions`
+    // blocks hold class members. Keeping the two apart means a declaration such as
+    // `int x = 1;` has one reading in each: if a block accepted both, the field and the local
+    // variable would be an ambiguity the parser could settle differently on an incremental
+    // reparse than on a fresh parse.
     razor_block: ($) =>
       prec.left(
-        seq(
-          alias(seq($._razor_marker, optional(choice('code', 'functions'))), 'at_block'),
-          '{',
-          repeat(choice($.declaration, seq($.statement), $._node)),
-          '}',
+        choice(
+          seq(alias($._razor_marker, 'at_block'), '{', repeat(choice($.statement, $._node)), '}'),
+          seq(
+            alias(seq($._razor_marker, choice('code', 'functions')), 'at_block'),
+            '{',
+            repeat(choice($.declaration, $._node)),
+            '}',
+          ),
         ),
       ),
 
