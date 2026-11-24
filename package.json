@@ -27,7 +27,7 @@
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "tree-sitter": "0.25.1",
-    "tree-sitter-c-sharp": "0.23.5",
+    "tree-sitter-c-sharp": "0.24.0",
     "tree-sitter-cli": "0.27.2"
   },
   "peerDependencies": {
