@@ -72,6 +72,8 @@ explicit_line_transition
 expression
 expression_element
 expression_statement
+extension_body
+extension_declaration
 extern_alias_directive{name}
 field_declaration
 file_scoped_namespace_declaration{name}
@@ -147,11 +149,11 @@ predefined_type
 prefix_unary_expression
 preproc_arg
 preproc_define
-preproc_elif{alternative,condition}
-preproc_else
+preproc_elif{alternative,body,condition}
+preproc_else{body}
 preproc_endregion{content}
 preproc_error
-preproc_if{alternative,condition}
+preproc_if{alternative,body,condition}
 preproc_if_in_attribute_list{alternative,condition}
 preproc_line
 preproc_nullable
@@ -213,6 +215,7 @@ razor_typeparam_directive{name}
 razor_using_directive{name}
 razor_while
 real_literal
+receiver_parameter{name,type}
 record_declaration{body,name}
 recursive_pattern{name,type}
 ref_expression
@@ -225,6 +228,7 @@ scoped_type{type}
 select_clause
 shebang_directive
 sizeof_expression{type}
+slice_pattern
 spread_element
 stackalloc_expression{type}
 statement
